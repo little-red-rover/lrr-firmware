@@ -21,4 +21,4 @@ jobs:
       with:
         esp_idf_version: v5.2
         target: esp32s3
-        path: './SOFTWARE/esp32_firmware'
+        path: '.'
