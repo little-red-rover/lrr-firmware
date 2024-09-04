@@ -23,10 +23,8 @@ jobs:
           esp_idf_version: v5.2
           target: esp32s3
           path: '.'
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: build/${{ github.event.repository.name }}.bin
+          files: build/lrr.bin
