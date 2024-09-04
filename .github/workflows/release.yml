@@ -1,5 +1,8 @@
 name: release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -30,12 +33,7 @@ jobs:
           tag_name: ${{ github.ref }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      - name: upload binary artifact
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /build/lrr.bin
-          asset_name: lrr.bin
-          asset_content_type: application/octet-stream
+          files: /build/lrr.bin
