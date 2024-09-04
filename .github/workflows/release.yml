@@ -27,4 +27,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: /build/lrr.bin
+          files: /app/little-red-rover/lrr-firmware/build
