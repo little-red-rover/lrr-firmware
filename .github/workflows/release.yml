@@ -23,16 +23,6 @@ jobs:
           esp_idf_version: v5.2
           target: esp32s3
           path: '.'
-      - name: release
-        uses: actions/create-release@v1
-        id: create_release
-        with:
-          draft: false
-          prerelease: false
-          release_name: ${{ steps.version.outputs.version }}
-          tag_name: ${{ github.ref }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
