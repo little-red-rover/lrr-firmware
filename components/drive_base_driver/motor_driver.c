@@ -37,7 +37,7 @@
 
 // Max change to motor power per pid cycle
 // Reduces current surges
-#define MAX_JERK 0.1
+#define MAX_JERK 0.15
 
 // Minimum % duty that must be applied to affect any motion
 // Inputs below this level are ignored
@@ -204,14 +204,14 @@ void configure_motor(motor_handle_t *motor,
 
     // PID
     pid_ctrl_parameter_t pid_runtime_param = {
-        .kp = 0.3, // TODO: tune these (maybe make them uROS controlled?)
-        .ki = 0.3,
+        .kp = 0.4, // TODO: tune these (maybe make them uROS controlled?)
+        .ki = 0.1,
         .kd = 0.0,
-        .cal_type = PID_CAL_TYPE_POSITIONAL,
+        .cal_type = PID_CAL_TYPE_INCREMENTAL,
         .max_output = 1.0,
         .min_output = -1.0,
         .max_integral = 0.3,
-        .min_integral = -0.3,
+        .min_integral = -0.7,
     };
     pid_ctrl_block_handle_t pid_ctrl = NULL;
     pid_ctrl_config_t pid_config = {
