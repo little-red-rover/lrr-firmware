@@ -1,0 +1,41 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build_release:
+    name: build_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: esp-idf build
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.2
+          target: esp32s3
+          path: '.'
+      - name: release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: ${{ steps.version.outputs.version }}
+          tag_name: ${{ github.ref }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: upload binary artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: /build/lrr.bin
+          asset_name: lrr.bin
+          asset_content_type: application/octet-stream
