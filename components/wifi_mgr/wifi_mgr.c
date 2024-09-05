@@ -298,6 +298,11 @@ void wifi_mgr_init()
         ESP_ERROR_CHECK(nvs_flash_init());
     }
 
+    /* RETRIEVE MAC */
+    unsigned char mac[6] = { 0 };
+    esp_efuse_mac_get_default(mac);
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
     /* EVENT LOOP INIT */
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -309,9 +314,11 @@ void wifi_mgr_init()
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
 
+    char *ssid;
+    asprintf(&ssid, "little_red_rover_%02X:%02X:%02X", mac[3], mac[4], mac[5]);
+
     wifi_config_t wifi_config = {
         .ap = {
-            .ssid = "little_red_rover",
             .ssid_len = 0,
             .channel = 0,
             .password = "",
@@ -322,6 +329,7 @@ void wifi_mgr_init()
             },
         },
     };
+    strcpy((char *)wifi_config.ap.ssid, ssid);
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 
