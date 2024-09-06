@@ -23,7 +23,7 @@ jobs:
           esp_idf_version: v5.2
           target: esp32s3
           path: '.'
-          command: idf.py build && cd build && esptool.py --chip ESP32S3 merge_bin --format hex -o ../lrr-firmware.bin @flash_args
+          command: idf.py build && cd build && esptool.py --chip ESP32S3 merge_bin --format hex -o ../lrr-firmware.hex @flash_args
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
