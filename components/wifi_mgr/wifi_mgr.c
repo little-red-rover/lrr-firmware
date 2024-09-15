@@ -5,6 +5,7 @@
 #include <freertos/event_groups.h>
 #include <freertos/task.h>
 
+#include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -235,10 +236,10 @@ static esp_err_t get_agent_ip_handler(httpd_req_t *req)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
     } else {
-        err = nvs_set_str(my_handle, "uros_ag_ip", agent_ip);
+        err = nvs_set_str(my_handle, "agent_ip", agent_ip);
         if (err != ESP_OK) {
             ESP_LOGE(TAG,
-                     "Error (%s) writing uros agent ip to flash.",
+                     "Error (%s) writing agent ip to flash.",
                      esp_err_to_name(err));
 
             return ESP_FAIL;
@@ -330,6 +331,7 @@ void wifi_mgr_init()
         },
     };
     strcpy((char *)wifi_config.ap.ssid, ssid);
+    free(ssid);
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 
@@ -369,8 +371,12 @@ void wifi_mgr_init()
     ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
     wifi_prov_scheme_softap_set_httpd_handle((void *)(&_server));
 
-    // wifi_prov_mgr_reset_provisioning();
+    // Reprovision button
+    gpio_set_direction(REPROVISION_PIN, GPIO_MODE_INPUT);
 
+    if (!gpio_get_level(REPROVISION_PIN)) {
+        wifi_prov_mgr_reset_provisioning();
+    }
     ESP_ERROR_CHECK(wifi_prov_mgr_disable_auto_stop(0));
 
     bool provisioned = false;
