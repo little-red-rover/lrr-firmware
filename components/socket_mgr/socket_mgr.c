@@ -36,7 +36,7 @@ esp_err_t get_agent_ip()
         ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
     } else {
         size_t l = sizeof(AGENT_IP);
-        err = nvs_get_str(my_handle, "uros_ag_ip", AGENT_IP, &l);
+        err = nvs_get_str(my_handle, "agent_ip", AGENT_IP, &l);
         switch (err) {
             case ESP_OK:
                 ESP_LOGI(TAG, "Retrieved IP (%s) for agent IP.", AGENT_IP);

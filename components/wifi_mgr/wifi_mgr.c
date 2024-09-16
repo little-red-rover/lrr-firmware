@@ -373,10 +373,10 @@ void wifi_mgr_init()
 
     // Reprovision button
     gpio_set_direction(REPROVISION_PIN, GPIO_MODE_INPUT);
-
     if (!gpio_get_level(REPROVISION_PIN)) {
         wifi_prov_mgr_reset_provisioning();
     }
+
     ESP_ERROR_CHECK(wifi_prov_mgr_disable_auto_stop(0));
 
     bool provisioned = false;
@@ -388,7 +388,7 @@ void wifi_mgr_init()
           IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
 
         ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(
-          WIFI_PROV_SECURITY_1, NULL, "little_red_rover", NULL));
+          WIFI_PROV_SECURITY_1, NULL, (char *)wifi_config.ap.ssid, NULL));
     } else {
         ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA");
 
