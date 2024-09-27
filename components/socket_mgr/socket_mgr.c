@@ -23,12 +23,15 @@
 #define SOCKET_RX_TASK_STACK_SIZE 4096
 #define MAX_RX_CALLBACKS 1
 
+#define PORT 8001
+
 static const char *TAG = "SOCKET_MGR";
 
 static char AGENT_IP[16];
-#define PORT 8001
 
-esp_err_t get_agent_ip()
+struct sockaddr_in dest_addr;
+
+esp_err_t socket_set_agent_ip()
 {
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
@@ -40,6 +43,9 @@ esp_err_t get_agent_ip()
         switch (err) {
             case ESP_OK:
                 ESP_LOGI(TAG, "Retrieved IP (%s) for agent IP.", AGENT_IP);
+                dest_addr.sin_addr.s_addr = inet_addr(AGENT_IP);
+                dest_addr.sin_family = AF_INET;
+                dest_addr.sin_port = htons(PORT);
                 break;
             case ESP_ERR_NVS_NOT_FOUND:
                 ESP_LOGI(TAG, "Agent IP has not been set.");
@@ -62,7 +68,6 @@ static int socket_id;
 QueueHandle_t tx_queue = NULL;
 
 static unsigned char tx_buffer[1500];
-struct sockaddr_in dest_addr;
 
 static void socket_tx_task(void *arg)
 {
@@ -144,13 +149,9 @@ void register_callback(void (*callback)(void *), eRxMsgTypes type)
 void socket_mgr_init()
 {
     set_status(eAgentDisconnected);
-    while (get_agent_ip() != ESP_OK) {
+    while (socket_set_agent_ip() != ESP_OK) {
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
-
-    dest_addr.sin_addr.s_addr = inet_addr(AGENT_IP);
-    dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(PORT);
 
     struct sockaddr_in src_addr;
     src_addr.sin_addr.s_addr = htonl(INADDR_ANY);
