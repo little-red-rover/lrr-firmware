@@ -25,8 +25,8 @@ message LaserScan
     float scan_time = 6;
     float range_min = 7;
     float range_max = 8;
-    repeated float ranges = 9 [ (nanopb).max_count = 120 ];
-    repeated float intensities = 10 [ (nanopb).max_count = 120 ];
+    repeated float ranges = 9 [ (nanopb).max_count = 12 ];
+    repeated float intensities = 10 [ (nanopb).max_count = 12 ];
 }
 
 message JointStates
@@ -41,7 +41,7 @@ message JointStates
 
 message UdpPacket
 {
-    optional LaserScan laser = 1;
+    repeated LaserScan laser = 1 [ (nanopb).max_count = 10 ];
     optional JointStates joint_states = 2;
     optional TwistCmd cmd_vel = 3;
 }
