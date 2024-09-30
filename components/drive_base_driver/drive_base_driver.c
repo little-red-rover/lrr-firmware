@@ -68,10 +68,13 @@ static const char *TAG = "drive_base_driver";
 #define PUBLISHER_LOOP_PERIOD_MS 20
 
 // MOTORS
-motor_handle_t left_motor_handle;
-motor_handle_t right_motor_handle;
+static motor_handle_t left_motor_handle;
+static motor_handle_t right_motor_handle;
 
-UdpPacket wheel_state_msg;
+#define CMD_VEL_TIMEOUT_MS 200
+static bool cmd_vel_watchdog_fed = false;
+
+static UdpPacket wheel_state_msg;
 
 static void set_drive_base_enabled(bool enable)
 {
@@ -94,6 +97,8 @@ void cmd_vel_callback(void *cmd)
     // https://control.ros.org/master/doc/ros2_controllers/doc/mobile_robot_kinematics.html#differential-drive-robot
     set_diff_drive((v - ((w * WHEEL_TRACK) / 2.0)) * (2.0 / WHEEL_DIAMETER),
                    (v + ((w * WHEEL_TRACK) / 2.0)) * (2.0 / WHEEL_DIAMETER));
+
+    cmd_vel_watchdog_fed = true;
 }
 
 void wheel_state_publish_timer_callback()
@@ -160,7 +165,11 @@ static void drive_base_driver_task(void *arg)
     set_drive_base_enabled(true);
 
     while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(CMD_VEL_TIMEOUT_MS / portTICK_PERIOD_MS);
+        if (!cmd_vel_watchdog_fed) {
+            set_diff_drive(0.0, 0.0);
+        }
+        cmd_vel_watchdog_fed = false;
     }
 
     vTaskDelete(NULL);
