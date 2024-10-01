@@ -96,9 +96,9 @@ int read_gyroscope(float *x, float *y, float *z)
 
     read_registers(LSM6DS3_OUTX_L_G, (uint8_t *)data, sizeof(data));
 
-    *x = deg_2_rad(data[0] * 500.0 / 32768.0);
-    *y = deg_2_rad(data[1] * 500.0 / 32768.0);
-    *z = deg_2_rad(data[2] * 500.0 / 32768.0);
+    *x = -deg_2_rad(data[1] * 500.0 / 32768.0);
+    *y = -deg_2_rad(data[0] * 500.0 / 32768.0);
+    *z = -deg_2_rad(data[2] * 500.0 / 32768.0);
 
     return 1;
 }
@@ -120,6 +120,8 @@ float gyroscope_sample_rate()
 static void imu_driver_task(void *arg)
 {
     imu_msg.has_imu = true;
+    imu_msg.imu.has_time = true;
+
     while (1) {
         vTaskDelay((1000 / IMU_PUBLISH_RATE_HZ) / portTICK_PERIOD_MS);
         if (gyroscope_available()) {
@@ -133,6 +135,12 @@ static void imu_driver_task(void *arg)
             // ESP_LOGI(TAG, "Accelerometer reading: \n %f \n %f \n %f", x, y,
             // z);
         }
+
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        imu_msg.imu.time.sec = (int32_t)ts.tv_sec;
+        imu_msg.imu.time.nanosec = (uint32_t)ts.tv_nsec;
+
         if (tx_queue != NULL &&
             xQueueSend(tx_queue, (void *)&imu_msg, 10) != pdTRUE) {
             ESP_LOGE(TAG, "Failed to push scan onto queue");
