@@ -39,9 +39,21 @@ message JointStates
     repeated double effort = 5 [ (nanopb).max_count = 2 ];
 }
 
+message IMU
+{
+    TimeStamp time = 1;
+    float gyro_x = 2;
+    float gyro_y = 3;
+    float gyro_z = 4;
+    float accel_x = 5;
+    float accel_y = 6;
+    float accel_z = 7;
+}
+
 message UdpPacket
 {
     repeated LaserScan laser = 1 [ (nanopb).max_count = 10 ];
     optional JointStates joint_states = 2;
     optional TwistCmd cmd_vel = 3;
+    optional IMU imu = 4;
 }

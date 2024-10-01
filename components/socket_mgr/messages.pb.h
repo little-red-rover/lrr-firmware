@@ -51,6 +51,17 @@ typedef struct _JointStates {
     double effort[2];
 } JointStates;
 
+typedef struct _IMU {
+    bool has_time;
+    TimeStamp time;
+    float gyro_x;
+    float gyro_y;
+    float gyro_z;
+    float accel_x;
+    float accel_y;
+    float accel_z;
+} IMU;
+
 typedef struct _UdpPacket {
     pb_size_t laser_count;
     LaserScan laser[10];
@@ -58,6 +69,8 @@ typedef struct _UdpPacket {
     JointStates joint_states;
     bool has_cmd_vel;
     TwistCmd cmd_vel;
+    bool has_imu;
+    IMU imu;
 } UdpPacket;
 
 
@@ -70,12 +83,14 @@ extern "C" {
 #define TwistCmd_init_default                    {false, TimeStamp_init_default, 0, 0}
 #define LaserScan_init_default                   {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define JointStates_init_default                 {false, TimeStamp_init_default, 0, {"", ""}, 0, {0, 0}, 0, {0, 0}, 0, {0, 0}}
-#define UdpPacket_init_default                   {0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointStates_init_default, false, TwistCmd_init_default}
+#define IMU_init_default                         {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0}
+#define UdpPacket_init_default                   {0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointStates_init_default, false, TwistCmd_init_default, false, IMU_init_default}
 #define TimeStamp_init_zero                      {0, 0}
 #define TwistCmd_init_zero                       {false, TimeStamp_init_zero, 0, 0}
 #define LaserScan_init_zero                      {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define JointStates_init_zero                    {false, TimeStamp_init_zero, 0, {"", ""}, 0, {0, 0}, 0, {0, 0}, 0, {0, 0}}
-#define UdpPacket_init_zero                      {0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointStates_init_zero, false, TwistCmd_init_zero}
+#define IMU_init_zero                            {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0}
+#define UdpPacket_init_zero                      {0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointStates_init_zero, false, TwistCmd_init_zero, false, IMU_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define TimeStamp_sec_tag                        1
@@ -98,9 +113,17 @@ extern "C" {
 #define JointStates_position_tag                 3
 #define JointStates_velocity_tag                 4
 #define JointStates_effort_tag                   5
+#define IMU_time_tag                             1
+#define IMU_gyro_x_tag                           2
+#define IMU_gyro_y_tag                           3
+#define IMU_gyro_z_tag                           4
+#define IMU_accel_x_tag                          5
+#define IMU_accel_y_tag                          6
+#define IMU_accel_z_tag                          7
 #define UdpPacket_laser_tag                      1
 #define UdpPacket_joint_states_tag               2
 #define UdpPacket_cmd_vel_tag                    3
+#define UdpPacket_imu_tag                        4
 
 /* Struct field encoding specification for nanopb */
 #define TimeStamp_FIELDLIST(X, a) \
@@ -142,20 +165,35 @@ X(a, STATIC,   REPEATED, DOUBLE,   effort,            5)
 #define JointStates_DEFAULT NULL
 #define JointStates_time_MSGTYPE TimeStamp
 
+#define IMU_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  time,              1) \
+X(a, STATIC,   SINGULAR, FLOAT,    gyro_x,            2) \
+X(a, STATIC,   SINGULAR, FLOAT,    gyro_y,            3) \
+X(a, STATIC,   SINGULAR, FLOAT,    gyro_z,            4) \
+X(a, STATIC,   SINGULAR, FLOAT,    accel_x,           5) \
+X(a, STATIC,   SINGULAR, FLOAT,    accel_y,           6) \
+X(a, STATIC,   SINGULAR, FLOAT,    accel_z,           7)
+#define IMU_CALLBACK NULL
+#define IMU_DEFAULT NULL
+#define IMU_time_MSGTYPE TimeStamp
+
 #define UdpPacket_FIELDLIST(X, a) \
 X(a, STATIC,   REPEATED, MESSAGE,  laser,             1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  joint_states,      2) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  cmd_vel,           3)
+X(a, STATIC,   OPTIONAL, MESSAGE,  cmd_vel,           3) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  imu,               4)
 #define UdpPacket_CALLBACK NULL
 #define UdpPacket_DEFAULT NULL
 #define UdpPacket_laser_MSGTYPE LaserScan
 #define UdpPacket_joint_states_MSGTYPE JointStates
 #define UdpPacket_cmd_vel_MSGTYPE TwistCmd
+#define UdpPacket_imu_MSGTYPE IMU
 
 extern const pb_msgdesc_t TimeStamp_msg;
 extern const pb_msgdesc_t TwistCmd_msg;
 extern const pb_msgdesc_t LaserScan_msg;
 extern const pb_msgdesc_t JointStates_msg;
+extern const pb_msgdesc_t IMU_msg;
 extern const pb_msgdesc_t UdpPacket_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
@@ -163,15 +201,17 @@ extern const pb_msgdesc_t UdpPacket_msg;
 #define TwistCmd_fields &TwistCmd_msg
 #define LaserScan_fields &LaserScan_msg
 #define JointStates_fields &JointStates_msg
+#define IMU_fields &IMU_msg
 #define UdpPacket_fields &UdpPacket_msg
 
 /* Maximum encoded size of messages (where known) */
+#define IMU_size                                 49
 #define JointStates_size                         107
 #define LaserScan_size                           174
 #define MESSAGES_PB_H_MAX_SIZE                   UdpPacket_size
 #define TimeStamp_size                           17
 #define TwistCmd_size                            29
-#define UdpPacket_size                           1910
+#define UdpPacket_size                           1961
 
 #ifdef __cplusplus
 } /* extern "C" */
