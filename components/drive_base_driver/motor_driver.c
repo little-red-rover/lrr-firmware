@@ -40,8 +40,7 @@
 #define MAX_JERK 0.15
 
 // Minimum % duty that must be applied to affect any motion
-// Inputs below this level are ignored
-#define HYSTERESIS 0.25
+#define HYSTERESIS 0.45
 
 #define PID_LOOP_PERIOD_MS 10.0
 
@@ -74,16 +73,19 @@ void set_motor_enabled(motor_handle_t *motor, bool enable)
 static void set_motor_power(motor_handle_t *motor, float power)
 {
     power = clamp(power, -1.0, 1.0);
-    if (power > HYSTERESIS) {
+    power *= 1.0 - HYSTERESIS;
+    if (power > 0) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE,
                       motor->chan_b,
-                      (uint32_t)(power * (float)(1 << PWM_TIMER_RESOLUTION)));
+                      (uint32_t)((power + HYSTERESIS) *
+                                 (float)(1 << PWM_TIMER_RESOLUTION)));
         ledc_set_duty(LEDC_LOW_SPEED_MODE, motor->chan_a, 0);
-    } else if (power < HYSTERESIS) {
+    } else if (power < 0) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, motor->chan_b, 0);
         ledc_set_duty(LEDC_LOW_SPEED_MODE,
                       motor->chan_a,
-                      (uint32_t)(-power * (float)(1 << PWM_TIMER_RESOLUTION)));
+                      (uint32_t)((-power + HYSTERESIS) *
+                                 (float)(1 << PWM_TIMER_RESOLUTION)));
     } else {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, motor->chan_b, 0);
         ledc_set_duty(LEDC_LOW_SPEED_MODE, motor->chan_a, 0);
@@ -204,14 +206,14 @@ void configure_motor(motor_handle_t *motor,
 
     // PID
     pid_ctrl_parameter_t pid_runtime_param = {
-        .kp = 0.4, // TODO: tune these (maybe make them uROS controlled?)
-        .ki = 0.1,
+        .kp = 0.05, // TODO: tune these (maybe make them uROS controlled?)
+        .ki = 0.01,
         .kd = 0.0,
         .cal_type = PID_CAL_TYPE_INCREMENTAL,
         .max_output = 1.0,
         .min_output = -1.0,
-        .max_integral = 0.3,
-        .min_integral = -0.7,
+        .max_integral = 0.05,
+        .min_integral = -0.05,
     };
     pid_ctrl_block_handle_t pid_ctrl = NULL;
     pid_ctrl_config_t pid_config = {
