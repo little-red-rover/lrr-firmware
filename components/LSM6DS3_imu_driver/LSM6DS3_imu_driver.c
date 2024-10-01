@@ -14,9 +14,14 @@
 
 #include "driver/i2c_master.h"
 
+#include "messages.pb.h"
+#include "socket_mgr.h"
+
 #include "status_led_driver.h"
 
 #define IMU_TASK_STACK_SIZE (4096)
+
+#define IMU_PUBLISH_RATE_HZ 100
 
 #define SCL_PIN 1
 #define SDA_PIN 2
@@ -27,6 +32,8 @@
 static const char *TAG = "imu driver";
 
 i2c_master_dev_handle_t imu_i2c_handle;
+
+UdpPacket imu_msg;
 
 void read_registers(uint8_t address, uint8_t *data, size_t length)
 {
@@ -62,8 +69,8 @@ int read_acceleration(float *x, float *y, float *z)
 
     read_registers(LSM6DS3_OUTX_L_XL, (uint8_t *)data, sizeof(data));
 
-    *x = (data[0] * 4.0 / 32768.0) * GRAV_ACCEL;
-    *y = -(data[1] * 4.0 / 32768.0) * GRAV_ACCEL;
+    *x = -(data[1] * 4.0 / 32768.0) * GRAV_ACCEL;
+    *y = -(data[0] * 4.0 / 32768.0) * GRAV_ACCEL;
     *z = -(data[2] * 4.0 / 32768.0) * GRAV_ACCEL;
 
     return 1;
@@ -112,17 +119,23 @@ float gyroscope_sample_rate()
 
 static void imu_driver_task(void *arg)
 {
+    imu_msg.has_imu = true;
     while (1) {
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-        float x, y, z;
+        vTaskDelay((1000 / IMU_PUBLISH_RATE_HZ) / portTICK_PERIOD_MS);
         if (gyroscope_available()) {
-            read_gyroscope(&x, &y, &z);
+            read_gyroscope(
+              &imu_msg.imu.gyro_x, &imu_msg.imu.gyro_y, &imu_msg.imu.gyro_z);
             // ESP_LOGI(TAG, "Gyro reading: \n %f \n %f \n %f", x, y, z);
         }
         if (acceleration_available()) {
-            read_acceleration(&x, &y, &z);
+            read_acceleration(
+              &imu_msg.imu.accel_x, &imu_msg.imu.accel_y, &imu_msg.imu.accel_z);
             // ESP_LOGI(TAG, "Accelerometer reading: \n %f \n %f \n %f", x, y,
             // z);
+        }
+        if (tx_queue != NULL &&
+            xQueueSend(tx_queue, (void *)&imu_msg, 10) != pdTRUE) {
+            ESP_LOGE(TAG, "Failed to push scan onto queue");
         }
     }
     vTaskDelete(NULL);
@@ -156,10 +169,11 @@ void LSM6DS3_imu_driver_init()
     }
 
     ESP_LOGI(TAG, "IMU WHO_AM_I: %d", (int)read_register(LSM6DS3_WHO_AM_I_REG));
-    // Set the Accelerometer control register to work at 104 Hz, 4 g, and in
+
+    // Set the Accelerometer control register to work at 104 Hz, 2 g, and in
     // bypass mode and enable ODR / 4 low pass filter (check figure 9 of
     // LSM6DS3's datasheet)
-    write_register(LSM6DS3_CTRL1_XL, 0x4A);
+    write_register(LSM6DS3_CTRL1_XL, 0x42);
 
     // set the gyroscope control register to work at 104 Hz, 500 dps and in
     // bypass mode

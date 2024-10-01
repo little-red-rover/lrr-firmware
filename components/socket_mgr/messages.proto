@@ -55,4 +55,5 @@ message UdpPacket
     repeated LaserScan laser = 1 [ (nanopb).max_count = 10 ];
     optional JointStates joint_states = 2;
     optional TwistCmd cmd_vel = 3;
+    optional IMU imu = 4;
 }
