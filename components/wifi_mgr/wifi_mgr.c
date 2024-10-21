@@ -255,7 +255,6 @@ static esp_err_t get_agent_ip_handler(httpd_req_t *req)
 
         nvs_close(my_handle);
         ESP_LOGI(TAG, "Saved agent IP to flash.");
-        socket_set_agent_ip();
     }
 
     return ESP_OK;

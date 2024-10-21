@@ -8,6 +8,8 @@
 
 #include "esp_log.h"
 #include "freertos/projdefs.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #include "nvs.h"
 
@@ -25,43 +27,14 @@
 
 #define PORT 8001
 
+#define MULTICAST_IPV4_ADDR "239.255.12.11"
+#define MULTICAST_TTL 5
+
 static const char *TAG = "SOCKET_MGR";
 
 static char AGENT_IP[16];
 
-struct sockaddr_in dest_addr;
-
-esp_err_t socket_set_agent_ip()
-{
-    nvs_handle_t my_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-    } else {
-        size_t l = sizeof(AGENT_IP);
-        err = nvs_get_str(my_handle, "agent_ip", AGENT_IP, &l);
-        switch (err) {
-            case ESP_OK:
-                ESP_LOGI(TAG, "Retrieved IP (%s) for agent IP.", AGENT_IP);
-                dest_addr.sin_addr.s_addr = inet_addr(AGENT_IP);
-                dest_addr.sin_family = AF_INET;
-                dest_addr.sin_port = htons(PORT);
-                break;
-            case ESP_ERR_NVS_NOT_FOUND:
-                ESP_LOGI(TAG, "Agent IP has not been set.");
-                nvs_close(my_handle);
-                return ESP_FAIL;
-                break;
-            default:
-                ESP_LOGI(TAG, "Error (%s) reading!\n", esp_err_to_name(err));
-                nvs_close(my_handle);
-                return ESP_FAIL;
-        }
-
-        nvs_close(my_handle);
-    }
-    return ESP_OK;
-}
+struct addrinfo *dest_addr;
 
 static int socket_id;
 
@@ -86,18 +59,16 @@ static void socket_tx_task(void *arg)
                                   tx_buffer,
                                   stream.bytes_written,
                                   0,
-                                  (struct sockaddr *)&dest_addr,
-                                  sizeof(dest_addr));
+                                  dest_addr->ai_addr,
+                                  dest_addr->ai_addrlen);
 
-            // This fails whenever a client isn't emptying the network buffer,
-            // commented out for now.
-            // if (sent != stream.bytes_written) {
-            //     ESP_LOGE(TAG,
-            //              "Failed to write full packet data. Wrote %ld, "
-            //              "expected %zu.",
-            //              (long)sent,
-            //              stream.bytes_written);
-            // }
+            if (sent != stream.bytes_written) {
+                ESP_LOGE(TAG,
+                         "Failed to write full packet data. Wrote %ld, "
+                         "expected %zu.",
+                         (long)sent,
+                         stream.bytes_written);
+            }
         }
     }
 }
@@ -146,13 +117,57 @@ void register_callback(void (*callback)(void *), eRxMsgTypes type)
     rx_callbacks[type] = callback;
 }
 
-void socket_mgr_init()
+static void add_socket_multicast_group(int id)
 {
-    set_status(eAgentDisconnected);
-    while (socket_set_agent_ip() != ESP_OK) {
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+    struct ip_mreq imreq = { 0 };
+    struct in_addr iaddr = { 0 };
+    int err = 0;
+    // Configure source interface
+    imreq.imr_interface.s_addr = IPADDR_ANY;
+
+    // esp_netif_ip_info_t ip_info = { 0 };
+    // err = esp_netif_get_ip_info(get_example_netif(), &ip_info);
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(V4TAG, "Failed to get IP address info. Error 0x%x", err);
+    //     goto err;
+    // }
+    // inet_addr_from_ip4addr(&iaddr, &ip_info.ip);
+
+    // Configure multicast address to listen to
+    err = inet_aton(MULTICAST_IPV4_ADDR, &imreq.imr_multiaddr.s_addr);
+    if (err != 1) {
+        ESP_LOGE(TAG,
+                 "Configured IPV4 multicast address '%s' is invalid.",
+                 MULTICAST_IPV4_ADDR);
+        // Errors in the return value have to be negative
+        err = -1;
+    }
+    ESP_LOGI(TAG,
+             "Configured IPV4 Multicast address %s",
+             inet_ntoa(imreq.imr_multiaddr.s_addr));
+    if (!IP_MULTICAST(ntohl(imreq.imr_multiaddr.s_addr))) {
+        ESP_LOGW(TAG,
+                 "Configured IPV4 multicast address '%s' is not a valid "
+                 "multicast address. This will probably not work.",
+                 MULTICAST_IPV4_ADDR);
     }
 
+    // Assign the IPv4 multicast source interface, via its IP
+    err = setsockopt(
+      id, IPPROTO_IP, IP_MULTICAST_IF, &iaddr, sizeof(struct in_addr));
+    if (err < 0) {
+        ESP_LOGE(TAG, "Failed to set IP_MULTICAST_IF. Error %d", errno);
+    }
+
+    err = setsockopt(
+      id, IPPROTO_IP, IP_ADD_MEMBERSHIP, &imreq, sizeof(struct ip_mreq));
+    if (err < 0) {
+        ESP_LOGE(TAG, "Failed to set IP_ADD_MEMBERSHIP. Error %d", errno);
+    }
+}
+
+static void create_socket()
+{
     struct sockaddr_in src_addr;
     src_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     src_addr.sin_family = AF_INET;
@@ -172,7 +187,48 @@ void socket_mgr_init()
         ESP_LOGI(TAG, "Socket bound, port %d", PORT);
     }
 
-    ESP_LOGI(TAG, "Socket created, communicating with %s:%d", AGENT_IP, PORT);
+    uint8_t ttl = MULTICAST_TTL;
+    err = setsockopt(
+      socket_id, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(uint8_t));
+    if (err < 0) {
+        ESP_LOGE(TAG, "Failed to set IP_MULTICAST_TTL. Error %d", errno);
+    }
+
+    add_socket_multicast_group(socket_id);
+
+    struct addrinfo hints = {
+        .ai_flags = AI_PASSIVE,
+        .ai_socktype = SOCK_DGRAM,
+    };
+
+    hints.ai_family = AF_INET; // For an IPv4 socket
+
+    err = getaddrinfo(MULTICAST_IPV4_ADDR, NULL, &hints, &dest_addr);
+    if (err < 0) {
+        ESP_LOGE(TAG,
+                 "getaddrinfo() failed for IPV4 destination address. error: %d",
+                 err);
+    }
+    if (dest_addr == 0) {
+        ESP_LOGE(TAG, "getaddrinfo() did not return any addresses");
+    }
+    
+    char addrbuf[32] = { 0 };
+    ((struct sockaddr_in *)dest_addr->ai_addr)->sin_port = htons(PORT);
+    inet_ntoa_r(((struct sockaddr_in *)dest_addr->ai_addr)->sin_addr,
+                addrbuf,
+                sizeof(addrbuf) - 1);
+    ESP_LOGI(
+      TAG, "Sending to IPV4 multicast address %s:%d...", addrbuf, PORT);
+
+    ESP_LOGI(TAG, "Socket created, communicating with multicast address %s:%d", addrbuf, PORT);
+}
+
+void socket_mgr_init()
+{
+    set_status(eAgentDisconnected);
+
+    create_socket();
 
     tx_queue = xQueueCreate(25, sizeof(UdpPacket));
 
