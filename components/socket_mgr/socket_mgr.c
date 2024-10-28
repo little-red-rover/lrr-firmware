@@ -117,23 +117,47 @@ static uint8_t tx_packets(int sock)
     return 0;
 }
 
+static char magic[3] = {};
+static uint16_t length = 0;
+static uint16_t message_recv_length = 0;
+
 static uint8_t rx_packets(int sock)
 {
-    int len = try_receive(sock, rx_buffer, sizeof(rx_buffer));
+    // wait to see the delimeter
+    if (strcmp(magic, MAGIC_NUMBER) != 0) {
+        magic[0] = magic[1];
+        magic[1] = magic[2];
+        try_receive(sock, magic + 2, 1);
+        return 0;
+    }
 
-    if (len == 0) {
+    // after the delimeter is two byte size
+    if (length == 0) {
+        try_receive(sock, &length, 2);
+        return 0;
+    }
+
+    // finally the actual data
+    int recieved = try_receive(sock, rx_buffer, length);
+    message_recv_length += recieved;
+
+    if (recieved == 0) {
         // socket was busy
         return 0;
-    } else if (len == -2) {
+    } else if (recieved == -2) {
         ESP_LOGE(TAG, "Connection closed");
         return -1;
-    } else if (len < 0) {
+    } else if (recieved < 0) {
         ESP_LOGE(TAG, "recv failed: errno %d", errno);
         return -1;
+    } else if (message_recv_length < length) {
+        // there's more of the message yet to be recieved
+        return 0;
     } else {
-        pb_istream_t stream = pb_istream_from_buffer(rx_buffer, len);
+        pb_istream_t stream = pb_istream_from_buffer(rx_buffer, length);
 
-        // TODO: Get rid of the union stuff, just pass the NetworkPacket message
+        // TODO: Get rid of the union stuff, just pass the NetworkPacket
+        // message
         const pb_msgdesc_t *type = decode_unionmessage_type(&stream);
         bool status = false;
 
@@ -144,11 +168,17 @@ static uint8_t rx_packets(int sock)
             (*(rx_callbacks[eTwistCmd]))(&msg);
         }
 
+        magic[0] = 0;
+        magic[1] = 0;
+        magic[2] = 0;
+        length = 0;
+        message_recv_length = 0;
+
         if (!status) {
             ESP_LOGE(TAG, "Decode failed: %s\n", PB_GET_ERROR(&stream));
         }
+        return 0;
     }
-    return 0;
 }
 
 static void socket_task(void *arg)
