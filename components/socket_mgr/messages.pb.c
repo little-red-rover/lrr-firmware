@@ -21,7 +21,7 @@ PB_BIND(JointStates, JointStates, AUTO)
 PB_BIND(IMU, IMU, AUTO)
 
 
-PB_BIND(UdpPacket, UdpPacket, 2)
+PB_BIND(NetworkPacket, NetworkPacket, 2)
 
 
 

@@ -12,6 +12,7 @@
 #include <time.h>
 
 #include "motor_driver.h"
+#include "portmacro.h"
 #include "soc/soc.h"
 
 #include "messages.pb.h"
@@ -74,7 +75,7 @@ static motor_handle_t right_motor_handle;
 #define CMD_VEL_TIMEOUT_MS 200
 static bool cmd_vel_watchdog_fed = false;
 
-static UdpPacket wheel_state_msg;
+static NetworkPacket wheel_state_msg;
 
 static void set_drive_base_enabled(bool enable)
 {
@@ -122,9 +123,16 @@ void wheel_state_publish_timer_callback()
     wheel_state_msg.joint_states.effort[1] =
       (double)right_motor_handle.applied_effort;
 
-    if (tx_queue != NULL &&
-        xQueueSend(tx_queue, (void *)&wheel_state_msg, 10) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to push scan onto queue");
+    BaseType_t xHigherPriorityTaskWoken;
+    xHigherPriorityTaskWoken = pdFALSE;
+
+    if (tx_queue != NULL) {
+        xQueueSendToBackFromISR(
+          tx_queue, (void *)&wheel_state_msg, &xHigherPriorityTaskWoken);
+    }
+
+    if (xHigherPriorityTaskWoken) {
+        portYIELD_FROM_ISR();
     }
 }
 
@@ -160,7 +168,8 @@ static void drive_base_driver_task(void *arg)
     };
     esp_timer_handle_t pub_timer_handle;
     ESP_ERROR_CHECK(esp_timer_create(&pub_timer_args, &pub_timer_handle));
-    esp_timer_start_periodic(pub_timer_handle, PUBLISHER_LOOP_PERIOD_MS * 1000);
+    // esp_timer_start_periodic(pub_timer_handle, PUBLISHER_LOOP_PERIOD_MS *
+    // 1000);
 
     set_drive_base_enabled(true);
 
@@ -196,7 +205,7 @@ void drive_base_driver_init()
                             "drive_base_driver_task",
                             DRIVE_BASE_TASK_SIZE,
                             NULL,
-                            10,
+                            5,
                             NULL,
-                            APP_CPU_NUM);
+                            NULL);
 }

@@ -14,6 +14,7 @@
 #include "esp_spiffs.h"
 #include "esp_wifi.h"
 #include "esp_wifi_default.h"
+#include "esp_wifi_types.h"
 #include "nvs_flash.h"
 #include "portmacro.h"
 
@@ -28,7 +29,6 @@
 
 #include "esp_mac.h"
 
-#include "socket_mgr.h"
 #include "wifi_mgr.h"
 
 #include "status_led_driver.h"
@@ -39,6 +39,8 @@
 
 #define DEFAULT_AP_IP "192.168.4.1"
 #define DEFAULT_DNS "8.8.8.8"
+
+#define AP_PASSWORD "littleredrover"
 
 static esp_ip4_addr_t STA_IP;
 esp_netif_t *esp_netif_sta;
@@ -158,10 +160,12 @@ static void wifi_event_handler(void *arg,
                event_id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t *event =
           (wifi_event_ap_stadisconnected_t *)event_data;
+        ESP_LOGI(TAG_AP, "Disconnect reason: %d", event->reason);
         ESP_LOGI(TAG_AP,
                  "Station " MACSTR " left, AID=%d",
                  MAC2STR(event->mac),
                  event->aid);
+
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
         ESP_LOGI(TAG_STA, "Station started");
@@ -232,32 +236,6 @@ static esp_err_t get_agent_ip_handler(httpd_req_t *req)
 
     httpd_resp_sendstr(req, agent_ip);
 
-    nvs_handle_t my_handle;
-    esp_err_t err = nvs_open("storage", NVS_READWRITE, &my_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error (%s) opening NVS handle!\n", esp_err_to_name(err));
-    } else {
-        err = nvs_set_str(my_handle, "agent_ip", agent_ip);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG,
-                     "Error (%s) writing agent ip to flash.",
-                     esp_err_to_name(err));
-
-            return ESP_FAIL;
-        }
-        err = nvs_commit(my_handle);
-        if (err != ESP_OK) {
-            ESP_LOGE(
-              TAG, "Error (%s) commiting flash memory.", esp_err_to_name(err));
-
-            return ESP_FAIL;
-        }
-
-        nvs_close(my_handle);
-        ESP_LOGI(TAG, "Saved agent IP to flash.");
-        socket_set_agent_ip();
-    }
-
     return ESP_OK;
 }
 
@@ -324,9 +302,9 @@ void wifi_mgr_init()
         .ap = {
             .ssid_len = 0,
             .channel = 0,
-            .password = "",
+            .password = AP_PASSWORD,
             .max_connection = 14,
-            .authmode = WIFI_AUTH_OPEN,
+            .authmode = WIFI_AUTH_WPA2_PSK,
             .pmf_cfg = {
                     .required = true,
             },

@@ -15,6 +15,7 @@
 #include "driver/i2c_master.h"
 
 #include "messages.pb.h"
+#include "portmacro.h"
 #include "socket_mgr.h"
 
 #include "status_led_driver.h"
@@ -33,7 +34,7 @@ static const char *TAG = "imu driver";
 
 i2c_master_dev_handle_t imu_i2c_handle;
 
-UdpPacket imu_msg;
+NetworkPacket imu_msg;
 
 void read_registers(uint8_t address, uint8_t *data, size_t length)
 {
@@ -142,8 +143,9 @@ static void imu_driver_task(void *arg)
         imu_msg.imu.time.nanosec = (uint32_t)ts.tv_nsec;
 
         if (tx_queue != NULL &&
-            xQueueSend(tx_queue, (void *)&imu_msg, 10) != pdTRUE) {
-            ESP_LOGE(TAG, "Failed to push scan onto queue");
+            xQueueSend(tx_queue, (void *)&imu_msg, portMAX_DELAY) != pdTRUE) {
+            ESP_LOGE(TAG, "Failed to push message onto queue, delaying...");
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
     vTaskDelete(NULL);
@@ -194,5 +196,5 @@ void LSM6DS3_imu_driver_init()
     write_register(LSM6DS3_CTRL8_XL, 0x09);
 
     xTaskCreate(
-      imu_driver_task, "imu_driver_task", IMU_TASK_STACK_SIZE, NULL, 10, NULL);
+      imu_driver_task, "imu_driver_task", IMU_TASK_STACK_SIZE, NULL, 5, NULL);
 }

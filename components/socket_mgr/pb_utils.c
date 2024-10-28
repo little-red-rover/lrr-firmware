@@ -13,7 +13,7 @@ bool encode_unionmessage(pb_ostream_t *stream,
 {
     pb_field_iter_t iter;
 
-    if (!pb_field_iter_begin(&iter, UdpPacket_fields, message))
+    if (!pb_field_iter_begin(&iter, NetworkPacket_fields, message))
         return false;
 
     do {
@@ -39,7 +39,7 @@ const pb_msgdesc_t *decode_unionmessage_type(pb_istream_t *stream)
     while (pb_decode_tag(stream, &wire_type, &tag, &eof)) {
         if (wire_type == PB_WT_STRING) {
             pb_field_iter_t iter;
-            if (pb_field_iter_begin(&iter, UdpPacket_fields, NULL) &&
+            if (pb_field_iter_begin(&iter, NetworkPacket_fields, NULL) &&
                 pb_field_iter_find(&iter, tag)) {
                 /* Found our field. */
                 return iter.submsg_desc;
