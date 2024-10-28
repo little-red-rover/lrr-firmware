@@ -4,6 +4,7 @@
 #include "LSM6DS3_imu_driver.h"
 #include "drive_base_driver.h"
 #include "lidar_driver.h"
+#include "portmacro.h"
 #include "socket_mgr.h"
 #include "status_led_driver.h"
 #include "wifi_mgr.h"
@@ -23,4 +24,8 @@ void app_main(void)
     wifi_mgr_init();
 
     socket_mgr_init();
+
+    while (1) {
+        vTaskDelay(portMAX_DELAY);
+    }
 }

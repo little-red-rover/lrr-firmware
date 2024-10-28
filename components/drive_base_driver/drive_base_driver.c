@@ -168,8 +168,7 @@ static void drive_base_driver_task(void *arg)
     };
     esp_timer_handle_t pub_timer_handle;
     ESP_ERROR_CHECK(esp_timer_create(&pub_timer_args, &pub_timer_handle));
-    // esp_timer_start_periodic(pub_timer_handle, PUBLISHER_LOOP_PERIOD_MS *
-    // 1000);
+    esp_timer_start_periodic(pub_timer_handle, PUBLISHER_LOOP_PERIOD_MS * 1000);
 
     set_drive_base_enabled(true);
 
@@ -205,7 +204,7 @@ void drive_base_driver_init()
                             "drive_base_driver_task",
                             DRIVE_BASE_TASK_SIZE,
                             NULL,
-                            5,
+                            15,
                             NULL,
-                            NULL);
+                            APP_CPU_NUM);
 }

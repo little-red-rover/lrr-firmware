@@ -227,7 +227,7 @@ void lidar_driver_init()
                             "lidar_driver_task",
                             LIDAR_TASK_STACK_SIZE,
                             NULL,
-                            5,
+                            10,
                             NULL,
-                            NULL);
+                            APP_CPU_NUM);
 }
