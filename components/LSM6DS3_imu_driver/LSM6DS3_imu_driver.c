@@ -10,18 +10,21 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 
 #include "driver/i2c_master.h"
 
 #include "messages.pb.h"
+#include "portmacro.h"
+#include "soc/soc.h"
 #include "socket_mgr.h"
 
 #include "status_led_driver.h"
 
 #define IMU_TASK_STACK_SIZE (4096)
 
-#define IMU_PUBLISH_RATE_HZ 100
+#define IMU_PUBLISH_RATE_HZ 25
 
 #define SCL_PIN 1
 #define SDA_PIN 2
@@ -33,7 +36,7 @@ static const char *TAG = "imu driver";
 
 i2c_master_dev_handle_t imu_i2c_handle;
 
-UdpPacket imu_msg;
+NetworkPacket imu_msg;
 
 void read_registers(uint8_t address, uint8_t *data, size_t length)
 {
@@ -69,9 +72,9 @@ int read_acceleration(float *x, float *y, float *z)
 
     read_registers(LSM6DS3_OUTX_L_XL, (uint8_t *)data, sizeof(data));
 
-    *x = -(data[1] * 4.0 / 32768.0) * GRAV_ACCEL;
-    *y = -(data[0] * 4.0 / 32768.0) * GRAV_ACCEL;
-    *z = -(data[2] * 4.0 / 32768.0) * GRAV_ACCEL;
+    *x = -(data[1] * 2.0 / 32768.0) * GRAV_ACCEL;
+    *y = -(data[0] * 2.0 / 32768.0) * GRAV_ACCEL;
+    *z = -(data[2] * 2.0 / 32768.0) * GRAV_ACCEL;
 
     return 1;
 }
@@ -127,13 +130,10 @@ static void imu_driver_task(void *arg)
         if (gyroscope_available()) {
             read_gyroscope(
               &imu_msg.imu.gyro_x, &imu_msg.imu.gyro_y, &imu_msg.imu.gyro_z);
-            // ESP_LOGI(TAG, "Gyro reading: \n %f \n %f \n %f", x, y, z);
         }
         if (acceleration_available()) {
             read_acceleration(
               &imu_msg.imu.accel_x, &imu_msg.imu.accel_y, &imu_msg.imu.accel_z);
-            // ESP_LOGI(TAG, "Accelerometer reading: \n %f \n %f \n %f", x, y,
-            // z);
         }
 
         struct timespec ts;
@@ -142,8 +142,9 @@ static void imu_driver_task(void *arg)
         imu_msg.imu.time.nanosec = (uint32_t)ts.tv_nsec;
 
         if (tx_queue != NULL &&
-            xQueueSend(tx_queue, (void *)&imu_msg, 10) != pdTRUE) {
-            ESP_LOGE(TAG, "Failed to push scan onto queue");
+            xQueueSend(tx_queue, (void *)&imu_msg, portMAX_DELAY) != pdTRUE) {
+            ESP_LOGE(TAG, "Failed to push message onto queue, delaying...");
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
     vTaskDelete(NULL);
@@ -193,6 +194,11 @@ void LSM6DS3_imu_driver_init()
     // Set the ODR config register to ODR/4
     write_register(LSM6DS3_CTRL8_XL, 0x09);
 
-    xTaskCreate(
-      imu_driver_task, "imu_driver_task", IMU_TASK_STACK_SIZE, NULL, 10, NULL);
+    xTaskCreatePinnedToCore(imu_driver_task,
+                            "imu_driver_task",
+                            IMU_TASK_STACK_SIZE,
+                            NULL,
+                            10,
+                            NULL,
+                            APP_CPU_NUM);
 }

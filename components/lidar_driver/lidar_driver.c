@@ -42,7 +42,7 @@ static const char *TAG = "lidar driver";
 #define HEADER 0x54
 #define VERLEN 0x2C
 
-UdpPacket scan_msg;
+NetworkPacket scan_msg;
 
 typedef struct
 {
@@ -102,8 +102,9 @@ static size_t scan_packet_num = 0;
 void publish_packet()
 {
     if (tx_queue != NULL &&
-        xQueueSend(tx_queue, (void *)&scan_msg, 10) != pdTRUE) {
-        ESP_LOGE(TAG, "Failed to push scan onto queue");
+        xQueueSend(tx_queue, (void *)&scan_msg, portMAX_DELAY) != pdTRUE) {
+        ESP_LOGE(TAG, "Failed to push message onto queue, delaying...");
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 

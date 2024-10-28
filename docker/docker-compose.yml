@@ -4,6 +4,7 @@ services:
     esp_idf:
         image: esp_idf
         tty: true # Prevent immediate exit when running with dev containers
+        network_mode: "host"
         build:
             context: ..
             dockerfile: docker/esp_idf.Dockerfile
