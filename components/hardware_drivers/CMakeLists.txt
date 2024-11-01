@@ -1,0 +1,15 @@
+idf_component_register(
+                    SRCS 
+                        drive_base/drive_base_driver.cc
+                        drive_base/motor_driver.cc
+                    INCLUDE_DIRS
+                        .
+                        drive_base
+                        imu
+                        lidar
+                        battery
+                    PRIV_REQUIRES
+                        driver
+                        esp_timer
+                        espressif__pid_ctrl
+                    )
