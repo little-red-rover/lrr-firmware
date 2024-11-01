@@ -1,2 +1,16 @@
-idf_component_register(SRCS "communication_stack.c"
-                    INCLUDE_DIRS "include")
+idf_component_register(
+    SRCS 
+        wifi_manager/wifi_manager.cc
+    INCLUDE_DIRS 
+        wifi_manager
+        socket_manager
+    PRIV_REQUIRES
+        driver
+        esp_event
+        esp_http_server
+        esp_netif
+        spiffs
+        esp_wifi
+        nvs_flash
+        wifi_provisioning
+)

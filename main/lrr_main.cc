@@ -3,14 +3,17 @@
 
 #include "drive_base_driver.h"
 
+#include "wifi_manager.h"
+
 extern "C" void app_main(void)
 {
     HardwareDriver *drivers[] = { new DriveBaseDriver() };
 
     for (HardwareDriver *&driver : drivers) {
-        (*driver).init();
-        printf("hello");
+        driver->init();
     }
+
+    WifiManager::init();
 
     // status_led_driver_init();
     //

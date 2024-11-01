@@ -1,5 +1,7 @@
 #include "drive_base_driver.h"
+#include "esp_log.h"
 #include "hal/ledc_types.h"
+
 #include <cstdio>
 
 #define MOTOR_ENABLE_PIN GPIO_NUM_5
@@ -20,6 +22,8 @@
 
 #define WHEEL_DIAMETER 0.060960 // m
 #define WHEEL_TRACK 0.13948     // m
+
+#define TAG "DriveBaseDriver"
 
 DriveBaseDriver::DriveBaseDriver()
   : left_motor_(Motor(LEFT_MOTOR_PWM_A_PIN,
@@ -48,4 +52,6 @@ void DriveBaseDriver::init()
 
     left_motor_.set_enabled(true);
     left_motor_.set_velocity(0.0);
+
+    ESP_LOGI(TAG, "Drive base initialized");
 }
