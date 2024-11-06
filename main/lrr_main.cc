@@ -3,6 +3,7 @@
 
 #include "drive_base_driver.h"
 
+#include "socket_manager.h"
 #include "wifi_manager.h"
 
 extern "C" void app_main(void)
@@ -14,6 +15,8 @@ extern "C" void app_main(void)
     }
 
     WifiManager::init();
+
+    SocketManager::init();
 
     // status_led_driver_init();
     //

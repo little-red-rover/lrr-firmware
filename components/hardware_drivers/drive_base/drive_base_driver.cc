@@ -47,11 +47,11 @@ DriveBaseDriver::DriveBaseDriver()
 
 void DriveBaseDriver::init()
 {
-    right_motor_.set_enabled(true);
     right_motor_.set_velocity(0.0);
+    right_motor_.set_enabled(true);
 
-    left_motor_.set_enabled(true);
     left_motor_.set_velocity(0.0);
+    left_motor_.set_enabled(true);
 
     ESP_LOGI(TAG, "Drive base initialized");
 }

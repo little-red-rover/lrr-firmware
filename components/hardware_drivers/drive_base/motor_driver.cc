@@ -50,6 +50,9 @@ double clamp(float d, float min, float max)
 }
 
 Encoder::Encoder(gpio_num_t a, gpio_num_t b)
+  : count_(0)
+  , velocity_(0.0)
+  , position_(0.0)
 {
     pcnt_unit_config_t unit_config = {
         .low_limit = INT16_MIN,
@@ -159,7 +162,6 @@ void Motor::pid_callback_(void *arg)
 
     motor->encoder_.update((1000.0 / PID_LOOP_PERIOD_MS));
     float error = motor->cmd_velocity_ - motor->encoder_.velocity_;
-    // printf("error: %f\n", error);
 
     ESP_ERROR_CHECK(
       pid_compute(motor->pid_controller_, error, &motor->cmd_effort_));
@@ -199,8 +201,9 @@ Motor::Motor(gpio_num_t pwm_a,
   , chan_b_{ chan_b }
   , reversed_{ reversed }
   , enable_pin_{ enable_pin }
-
 {
+    set_enabled(false);
+
     ledc_timer_config_t pwm_timer = { .speed_mode = LEDC_LOW_SPEED_MODE,
                                       .duty_resolution = PWM_TIMER_RESOLUTION,
                                       .timer_num = LEDC_TIMER_0,
@@ -223,6 +226,7 @@ Motor::Motor(gpio_num_t pwm_a,
         .min_integral = -0.05,
         .cal_type = PID_CAL_TYPE_INCREMENTAL,
     };
+
     pid_ctrl_block_handle_t pid_ctrl = NULL;
     pid_ctrl_config_t pid_config = {
         .init_param = pid_runtime_param,

@@ -1,4 +1,4 @@
 CompileFlags:
   CompilationDatabase: build/
-  Add: -Wno-unknown-warning-option
+  Add: [-Wno-unknown-warning-option, -xc++, -std=c++20]
   Remove: [-m*, -f*]

@@ -11,13 +11,11 @@
             ]
         }
     },
-	"features": {	
-		"ghcr.io/duduribeiro/devcontainer-features/neovim:1": {
-            "version": "stable"
-        },
+    "features": {	
+		"ghcr.io/duduribeiro/devcontainer-features/neovim:2": {},
 		"ghcr.io/duduribeiro/devcontainer-features/tmux:1": {},
 		"ghcr.io/devcontainers/features/node:1": {},
-        "ghcr.io/devcontainers-contrib/features/ripgrep:1": {}
+        "ghcr.io/jungaretti/features/ripgrep:1": {}
 	},
 	"mounts": [
 		"source=${localEnv:HOME}/.config,target=/root/.config",	

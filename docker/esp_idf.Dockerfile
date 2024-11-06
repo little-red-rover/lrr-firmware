@@ -1,5 +1,4 @@
-# TODO: Rewrite file now that microros is not a dependency
-FROM ros:humble
+FROM ubuntu:latest
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && \
@@ -17,6 +16,7 @@ RUN . $HOME/esp/esp-idf/export.sh && \
 
 RUN echo "alias get_idf='. $HOME/esp/esp-idf/export.sh'" >> /root/.bashrc
 RUN echo "alias lrr_flash='(. $HOME/esp/esp-idf/export.sh && cd /esp32_firmware && idf.py build flash monitor)'" >> /root/.bashrc
+RUN echo ". ~/esp/esp-idf/export.sh > /dev/null" >> /root/.bashrc
 
 WORKDIR /esp32_firmware
 
