@@ -2,7 +2,9 @@
 
 #include "driver/pulse_cnt.h"
 #include "esp_timer.h"
+#include "freertos/idf_additions.h"
 #include "hal/ledc_types.h"
+#include "messages.pb.h"
 #include "pid_ctrl.h"
 #include "soc/gpio_num.h"
 
@@ -28,28 +30,31 @@ class Encoder
 class Motor
 {
   public:
-    Motor(gpio_num_t pwm_a,
+    Motor(Joint joint_name,
+          gpio_num_t pwm_a,
           ledc_channel_t chan_a,
           gpio_num_t pwm_b,
           ledc_channel_t chan_b,
           gpio_num_t encoder_a,
           gpio_num_t encoder_b,
           gpio_num_t enable,
-          bool reversed,
-          char *motor_name);
+          bool reversed);
 
     void set_enabled(bool enabled);
     void set_velocity(float speed);
 
   private:
+    Joint joint_name_;
+
     Encoder encoder_;
 
     void set_effort_(float power);
 
-    static void pid_callback_(void *arg);
+    bool is_enabled_{ false };
+
+    static void pid_timer_callback_(void *arg);
     pid_ctrl_block_handle_t pid_controller_;
     esp_timer_handle_t pid_timer_;
-    esp_timer_create_args_t pid_args_;
 
     ledc_channel_t chan_a_;
     ledc_channel_t chan_b_;
@@ -60,4 +65,14 @@ class Motor
     float cmd_velocity_; // rad / s
     float cmd_position_; // rad
     float cmd_effort_;
+
+    float applied_effort_;
+
+    QueueHandle_t joint_state_publish_queue_;
+    static void publish_timer_callback_(void *arg);
+    esp_timer_handle_t publish_timer_;
+
+    QueueHandle_t joint_cmd_recv_queue_;
+
+    static void task_main_(void *arg);
 };

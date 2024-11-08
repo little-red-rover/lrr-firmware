@@ -11,8 +11,8 @@ message TimeStamp
 
 enum Joint
 {
-    RIGHT_WHEEL = 0;
-    LEFT_WHEEL = 1;
+    LEFT_WHEEL = 0;
+    RIGHT_WHEEL = 1;
 }
 
 // Incoming
@@ -36,8 +36,9 @@ message JointCmd
 
 message IncomingCommand
 {
-    optional SubscribeRequest subscribe_request = 1;
-    optional JointCmd joint_cmd = 2;
+    IncomingMessageID msg_id = 1;
+    optional SubscribeRequest subscribe_request = 2;
+    optional JointCmd joint_cmd = 3;
 }
 
 // Outgoing

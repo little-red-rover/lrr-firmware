@@ -15,15 +15,27 @@
  */
 
 #include "motor_driver.h"
+
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/pulse_cnt.h"
 #include "esp_timer.h"
+
+#include "freertos/idf_additions.h"
+#include "freertos/task.h"
+
 #include "hal/gpio_types.h"
 #include "hal/pcnt_types.h"
+
 #include "pid_ctrl.h"
+#include <assert.h>
 #include <cstdio>
+#include <ctime>
 #include <math.h>
+
+#include "messages.pb.h"
+#include "portmacro.h"
+#include "socket_manager.h"
 
 #define PWM_TIMER_RESOLUTION LEDC_TIMER_10_BIT
 
@@ -32,16 +44,18 @@
 
 // Max change to motor power per pid cycle
 // Reduces current surges
-#define MAX_JERK 0.15
+#define MAX_JERK 0.25
 
 // Minimum % duty that must be applied to affect any motion
 #define HYSTERESIS 0.45
 
-#define PID_LOOP_PERIOD_MS 10.0
+#define PID_LOOP_PERIOD_MS 20.0
 
 #define PULSES_PER_ROTATION 2340.0
 #define PULSES_TO_RAD(pulses)                                                  \
     (((float)pulses / PULSES_PER_ROTATION) * (2 * M_PI))
+
+#define PUBLISH_LOOP_PERIOD_MS 100.0
 
 double clamp(float d, float min, float max)
 {
@@ -114,6 +128,8 @@ void Encoder::update(float dt)
 
 void Motor::set_enabled(bool enabled)
 {
+    is_enabled_ = enabled;
+
     gpio_set_direction(enable_pin_, GPIO_MODE_OUTPUT);
 
     if (enabled) {
@@ -127,17 +143,19 @@ void Motor::set_effort_(float power)
 {
     power = clamp(power, -1.0, 1.0);
     power *= 1.0 - HYSTERESIS;
-    if (power > 0) {
+    applied_effort_ =
+      clamp(power, applied_effort_ - MAX_JERK, applied_effort_ + MAX_JERK);
+    if (applied_effort_ > 0) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE,
                       chan_b_,
-                      (uint32_t)((power + HYSTERESIS) *
+                      (uint32_t)((applied_effort_ + HYSTERESIS) *
                                  (float)(1 << PWM_TIMER_RESOLUTION)));
         ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_a_, 0);
-    } else if (power < 0) {
+    } else if (applied_effort_ < 0) {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0);
         ledc_set_duty(LEDC_LOW_SPEED_MODE,
                       chan_a_,
-                      (uint32_t)((-power + HYSTERESIS) *
+                      (uint32_t)((-applied_effort_ + HYSTERESIS) *
                                  (float)(1 << PWM_TIMER_RESOLUTION)));
     } else {
         ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0);
@@ -156,19 +174,18 @@ void Motor::set_velocity(float velocity)
     cmd_velocity_ = velocity;
 }
 
-void Motor::pid_callback_(void *arg)
+void Motor::pid_timer_callback_(void *arg)
 {
     Motor *motor = (Motor *)arg;
+
+    if (!motor->is_enabled_)
+        return;
 
     motor->encoder_.update((1000.0 / PID_LOOP_PERIOD_MS));
     float error = motor->cmd_velocity_ - motor->encoder_.velocity_;
 
     ESP_ERROR_CHECK(
       pid_compute(motor->pid_controller_, error, &motor->cmd_effort_));
-
-    motor->cmd_effort_ = clamp(motor->cmd_effort_,
-                               motor->cmd_effort_ - MAX_JERK,
-                               motor->cmd_effort_ + MAX_JERK);
 
     motor->set_effort_(motor->cmd_effort_);
 };
@@ -187,22 +204,68 @@ static void configure_pwm(ledc_channel_t channel, int gpio)
     ESP_ERROR_CHECK(ledc_channel_config(&pwm_channel));
 }
 
-Motor::Motor(gpio_num_t pwm_a,
+void Motor::publish_timer_callback_(void *arg)
+{
+    Motor *motor = (Motor *)arg;
+    if (!xQueueIsQueueFullFromISR(motor->joint_state_publish_queue_)) {
+        OutgoingData msg = OutgoingData_init_default;
+        msg.has_joint_state = true;
+        msg.joint_state.has_time = true;
+        msg.msg_id = OutgoingMessageID_JOINT_STATES_DATA;
+
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        msg.joint_state.time.sec = (int32_t)ts.tv_sec;
+        msg.joint_state.time.nanosec = (uint32_t)ts.tv_nsec;
+
+        msg.joint_state.joint = motor->joint_name_;
+        msg.joint_state.effort = motor->applied_effort_;
+        msg.joint_state.velocity = motor->encoder_.velocity_;
+        msg.joint_state.position = motor->encoder_.position_;
+
+        BaseType_t xHigherPriorityTaskWoken;
+        xHigherPriorityTaskWoken = pdFALSE;
+
+        xQueueSendToBackFromISR(motor->joint_state_publish_queue_,
+                                static_cast<void *>(&msg),
+                                &xHigherPriorityTaskWoken);
+
+        if (xHigherPriorityTaskWoken) {
+            portYIELD_FROM_ISR();
+        }
+    }
+}
+
+void Motor::task_main_(void *arg)
+{
+    Motor *motor = (Motor *)arg;
+    IncomingCommand cmd = IncomingCommand_init_default;
+    while (xQueueReceive(motor->joint_cmd_recv_queue_, &cmd, portMAX_DELAY)) {
+        assert(cmd.has_joint_cmd);
+        if (cmd.joint_cmd.joint != motor->joint_name_) {
+            continue;
+        }
+        motor->set_velocity(cmd.joint_cmd.vel);
+    }
+}
+
+Motor::Motor(Joint joint_name,
+             gpio_num_t pwm_a,
              ledc_channel_t chan_a,
              gpio_num_t pwm_b,
              ledc_channel_t chan_b,
              gpio_num_t encoder_a,
              gpio_num_t encoder_b,
              gpio_num_t enable_pin,
-             bool reversed,
-             char *motor_name)
-  : encoder_{ Encoder(encoder_a, encoder_b) }
+             bool reversed)
+  : joint_name_(joint_name)
+  , encoder_{ Encoder(encoder_a, encoder_b) }
   , chan_a_{ chan_a }
   , chan_b_{ chan_b }
   , reversed_{ reversed }
   , enable_pin_{ enable_pin }
 {
-    set_enabled(false);
+    set_enabled(is_enabled_);
 
     ledc_timer_config_t pwm_timer = { .speed_mode = LEDC_LOW_SPEED_MODE,
                                       .duty_resolution = PWM_TIMER_RESOLUTION,
@@ -234,13 +297,39 @@ Motor::Motor(gpio_num_t pwm_a,
     ESP_ERROR_CHECK(pid_new_control_block(&pid_config, &pid_ctrl));
     pid_controller_ = pid_ctrl;
 
-    pid_args_ = (esp_timer_create_args_t){ .callback = pid_callback_,
-                                           .arg = this,
-                                           .dispatch_method = ESP_TIMER_TASK,
-                                           .name = motor_name,
-                                           .skip_unhandled_events = true };
+    esp_timer_create_args_t pid_cb_args_ = { .callback = pid_timer_callback_,
+                                             .arg = this,
+                                             .dispatch_method = ESP_TIMER_TASK,
+                                             .name = "PID_timer",
+                                             .skip_unhandled_events = true };
 
     pid_timer_ = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&pid_args_, &pid_timer_));
+    ESP_ERROR_CHECK(esp_timer_create(&pid_cb_args_, &pid_timer_));
     esp_timer_start_periodic(pid_timer_, PID_LOOP_PERIOD_MS * 1000);
+
+    joint_state_publish_queue_ = SocketManager::register_data_producer(
+      OutgoingMessageID_JOINT_STATES_DATA);
+
+    joint_cmd_recv_queue_ =
+      SocketManager::register_data_consumer(IncomingMessageID_JOINT_CMD);
+
+    esp_timer_create_args_t publish_cb_args_ = {
+        .callback = publish_timer_callback_,
+        .arg = this,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "publish_timer",
+        .skip_unhandled_events = true
+    };
+
+    publish_timer_ = NULL;
+    ESP_ERROR_CHECK(esp_timer_create(&publish_cb_args_, &publish_timer_));
+    esp_timer_start_periodic(publish_timer_, PUBLISH_LOOP_PERIOD_MS * 1000);
+
+    xTaskCreatePinnedToCore(task_main_,
+                            "motor_task",
+                            4096,
+                            static_cast<void *>(this),
+                            5,
+                            NULL,
+                            tskNO_AFFINITY);
 }

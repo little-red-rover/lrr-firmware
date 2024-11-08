@@ -11,8 +11,8 @@
 
 /* Enum definitions */
 typedef enum _Joint {
-    Joint_RIGHT_WHEEL = 0,
-    Joint_LEFT_WHEEL = 1
+    Joint_LEFT_WHEEL = 0,
+    Joint_RIGHT_WHEEL = 1
 } Joint;
 
 /* Incoming */
@@ -50,6 +50,7 @@ typedef struct _JointCmd {
 } JointCmd;
 
 typedef struct _IncomingCommand {
+    IncomingMessageID msg_id;
     bool has_subscribe_request;
     SubscribeRequest subscribe_request;
     bool has_joint_cmd;
@@ -108,9 +109,9 @@ extern "C" {
 #endif
 
 /* Helper constants for enums */
-#define _Joint_MIN Joint_RIGHT_WHEEL
-#define _Joint_MAX Joint_LEFT_WHEEL
-#define _Joint_ARRAYSIZE ((Joint)(Joint_LEFT_WHEEL+1))
+#define _Joint_MIN Joint_LEFT_WHEEL
+#define _Joint_MAX Joint_RIGHT_WHEEL
+#define _Joint_ARRAYSIZE ((Joint)(Joint_RIGHT_WHEEL+1))
 
 #define _IncomingMessageID_MIN IncomingMessageID_JOINT_CMD
 #define _IncomingMessageID_MAX IncomingMessageID_incoming_msg_count
@@ -125,6 +126,7 @@ extern "C" {
 
 #define JointCmd_joint_ENUMTYPE Joint
 
+#define IncomingCommand_msg_id_ENUMTYPE IncomingMessageID
 
 
 #define JointState_joint_ENUMTYPE Joint
@@ -137,7 +139,7 @@ extern "C" {
 #define TimeStamp_init_default                   {0, 0}
 #define SubscribeRequest_init_default            {_OutgoingMessageID_MIN}
 #define JointCmd_init_default                    {false, TimeStamp_init_default, _Joint_MIN, 0}
-#define IncomingCommand_init_default             {false, SubscribeRequest_init_default, false, JointCmd_init_default}
+#define IncomingCommand_init_default             {_IncomingMessageID_MIN, false, SubscribeRequest_init_default, false, JointCmd_init_default}
 #define LaserScan_init_default                   {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define JointState_init_default                  {_Joint_MIN, false, TimeStamp_init_default, 0, 0, 0}
 #define IMU_init_default                         {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0}
@@ -145,7 +147,7 @@ extern "C" {
 #define TimeStamp_init_zero                      {0, 0}
 #define SubscribeRequest_init_zero               {_OutgoingMessageID_MIN}
 #define JointCmd_init_zero                       {false, TimeStamp_init_zero, _Joint_MIN, 0}
-#define IncomingCommand_init_zero                {false, SubscribeRequest_init_zero, false, JointCmd_init_zero}
+#define IncomingCommand_init_zero                {_IncomingMessageID_MIN, false, SubscribeRequest_init_zero, false, JointCmd_init_zero}
 #define LaserScan_init_zero                      {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
 #define JointState_init_zero                     {_Joint_MIN, false, TimeStamp_init_zero, 0, 0, 0}
 #define IMU_init_zero                            {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0}
@@ -158,8 +160,9 @@ extern "C" {
 #define JointCmd_time_tag                        1
 #define JointCmd_joint_tag                       2
 #define JointCmd_vel_tag                         3
-#define IncomingCommand_subscribe_request_tag    1
-#define IncomingCommand_joint_cmd_tag            2
+#define IncomingCommand_msg_id_tag               1
+#define IncomingCommand_subscribe_request_tag    2
+#define IncomingCommand_joint_cmd_tag            3
 #define LaserScan_time_tag                       1
 #define LaserScan_angle_min_tag                  2
 #define LaserScan_angle_max_tag                  3
@@ -208,8 +211,9 @@ X(a, STATIC,   SINGULAR, FLOAT,    vel,               3)
 #define JointCmd_time_MSGTYPE TimeStamp
 
 #define IncomingCommand_FIELDLIST(X, a) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  subscribe_request,   1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  joint_cmd,         2)
+X(a, STATIC,   SINGULAR, UENUM,    msg_id,            1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  subscribe_request,   2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  joint_cmd,         3)
 #define IncomingCommand_CALLBACK NULL
 #define IncomingCommand_DEFAULT NULL
 #define IncomingCommand_subscribe_request_MSGTYPE SubscribeRequest
@@ -284,7 +288,7 @@ extern const pb_msgdesc_t OutgoingData_msg;
 
 /* Maximum encoded size of messages (where known) */
 #define IMU_size                                 49
-#define IncomingCommand_size                     32
+#define IncomingCommand_size                     34
 #define JointCmd_size                            26
 #define JointState_size                          48
 #define LaserScan_size                           174

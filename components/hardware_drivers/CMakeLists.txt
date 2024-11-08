@@ -2,6 +2,8 @@ idf_component_register(
                     SRCS 
                         drive_base/drive_base_driver.cc
                         drive_base/motor_driver.cc
+                        lidar/lidar_driver.cc
+                        battery/battery_driver.cc
                     INCLUDE_DIRS
                         .
                         drive_base
@@ -12,4 +14,5 @@ idf_component_register(
                         driver
                         esp_timer
                         espressif__pid_ctrl
+                        communication_stack
                     )

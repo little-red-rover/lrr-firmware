@@ -19,6 +19,8 @@ idf_component_register(
         wifi_manager
         socket_manager
         socket_manager/protobuf_msgs
+    REQUIRES
+        nanopb
     PRIV_REQUIRES
         driver
         esp_event
@@ -28,6 +30,5 @@ idf_component_register(
         esp_wifi
         nvs_flash
         wifi_provisioning
-        nanopb
         hardware_drivers
 )

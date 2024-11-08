@@ -1,6 +1,8 @@
 #include "drive_base_driver.h"
 #include "esp_log.h"
 #include "hal/ledc_types.h"
+#include "messages.pb.h"
+#include "socket_manager.h"
 
 #include <cstdio>
 
@@ -26,24 +28,24 @@
 #define TAG "DriveBaseDriver"
 
 DriveBaseDriver::DriveBaseDriver()
-  : left_motor_(Motor(LEFT_MOTOR_PWM_A_PIN,
+  : left_motor_(Motor(Joint_LEFT_WHEEL,
+                      LEFT_MOTOR_PWM_A_PIN,
                       LEFT_MOTOR_PWM_A_CHANNEL,
                       LEFT_MOTOR_PWM_B_PIN,
                       LEFT_MOTOR_PWM_B_CHANNEL,
                       LEFT_ENCODER_PIN_A,
                       LEFT_ENCODER_PIN_B,
                       MOTOR_ENABLE_PIN,
-                      false,
-                      (char *)"left_motor"))
-  , right_motor_(Motor(RIGHT_MOTOR_PWM_A_PIN,
+                      false))
+  , right_motor_(Motor(Joint_RIGHT_WHEEL,
+                       RIGHT_MOTOR_PWM_A_PIN,
                        RIGHT_MOTOR_PWM_A_CHANNEL,
                        RIGHT_MOTOR_PWM_B_PIN,
                        RIGHT_MOTOR_PWM_B_CHANNEL,
                        RIGHT_ENCODER_PIN_A,
                        RIGHT_ENCODER_PIN_B,
                        MOTOR_ENABLE_PIN,
-                       true,
-                       (char *)"right_motor")) {};
+                       true)) {};
 
 void DriveBaseDriver::init()
 {
@@ -52,6 +54,8 @@ void DriveBaseDriver::init()
 
     left_motor_.set_velocity(0.0);
     left_motor_.set_enabled(true);
+
+    SocketManager::register_data_consumer(IncomingMessageID_JOINT_CMD);
 
     ESP_LOGI(TAG, "Drive base initialized");
 }

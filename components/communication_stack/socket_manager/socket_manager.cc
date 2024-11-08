@@ -4,6 +4,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
 #include <freertos/task.h>
+#include <set>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include "esp_log.h"
+#include "freertos/idf_additions.h"
 #include "lwip/sockets.h"
 
 #include "common.h"
@@ -20,27 +22,30 @@
 #include "pb.h"
 #include "pb_decode.h"
 #include "pb_encode.h"
+#include "portmacro.h"
 
 namespace SocketManager {
 
 #define TAG "SocketManager"
 
 #define SOCKET_MAIN_TASK_STACK_SIZE 4096
-#define SOCKET_THREAD_STACK_SIZE 4066
+#define SOCKET_THREAD_STACK_SIZE 4096
 
 #define MAX_CLIENTS 10
 
-#define QUEUE_LENGTH 5
+#define QUEUE_LENGTH 2
 
 #define PORT 8001
 
 #define MAGIC_NUMBER "LRR"
 
-std::vector<QueueHandle_t>
-  data_consumer_queues[static_cast<int>(IncomingMessageID_incoming_msg_count)];
-
-std::vector<int>
+SemaphoreHandle_t send_sockets_mutex;
+std::set<int>
   send_sockets[static_cast<int>(OutgoingMessageID_outgoing_msg_count)];
+
+SemaphoreHandle_t consumer_queue_handle_mutex;
+std::vector<QueueHandle_t>
+  consumer_queues[static_cast<int>(IncomingMessageID_incoming_msg_count)];
 
 typedef struct
 {
@@ -51,52 +56,34 @@ typedef struct
 void send_socket_thread(void *arg)
 {
     send_socket_thread_args args = *static_cast<send_socket_thread_args *>(arg);
-    // Read from the queue
 
-    // Send message to all subscribed sockets
-    for (auto socket : send_sockets) {
-        // ssize_t written =
-        //   send(socket, const void *dataptr, size_t size, int flags)
+    OutgoingData data;
+
+    while (send_sockets[args.msg_id].size() == 0) {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
-}
 
-void recv_full_length(int &socket, uint8_t *buf, size_t len)
-{
-    // loop until the full requested length is placed into the buffer
-    ssize_t to_recv = len;
-    while (to_recv > 0) {
-        ssize_t received = recv(socket, buf + (len - to_recv), to_recv, 0);
-        if (received < 0) {
-            // TODO: handle this
-            ESP_LOGE(TAG, "Socket recv failed with error code: %d", errno);
-            break;
+    while (xQueueReceive(args.queue_handle, &data, portMAX_DELAY)) {
+        if (send_sockets_mutex == NULL) {
+            continue;
         }
-        to_recv -= received;
+
+        xSemaphoreTake(send_sockets_mutex, portMAX_DELAY);
+        // Send message to all subscribed sockets
+        for (auto socket : send_sockets[args.msg_id]) {
+            pb_ostream_t send_stream = pb_ostream_from_socket(socket);
+            if (!pb_encode_delimited(
+                  &send_stream, OutgoingData_fields, &data)) {
+                ESP_LOGE(TAG,
+                         "Encoding failed: %s on socket: %d",
+                         PB_GET_ERROR(&send_stream),
+                         socket);
+            }
+        }
+        xSemaphoreGive(send_sockets_mutex);
     }
-}
-
-// This function blocks until a valid message is received (TODO: timeout)
-IncomingCommand recv_msg(int &socket)
-{
-    // Look for the magic number
-    char magic[3] = {};
-
-    while (magic[0] != MAGIC_NUMBER[0] || magic[1] != MAGIC_NUMBER[1] ||
-           magic[2] != MAGIC_NUMBER[2]) {
-        magic[0] = magic[1];
-        magic[1] = magic[2];
-        recv_full_length(socket, ((uint8_t *)magic) + 2, 1);
-    }
-
-    // Read the packet length
-
-    // Read the data
-
-    // uint8_t *buff[sizeof(IncomingCommand)];
-    // ssize_t len = recv(socket, buff, sizeof(IncomingCommand), 0);
-    //
-    // Unpack into data structure
-    return IncomingCommand();
+    ESP_LOGE(TAG, "Queue recieve failed.");
+    vTaskDelete(NULL);
 }
 
 void recv_socket_thread(void *arg)
@@ -119,16 +106,24 @@ void recv_socket_thread(void *arg)
                 break;
             }
             case (-1): {
-                ESP_LOGW(TAG, "Select returned with an error: %d", ret);
+                ESP_LOGE(TAG, "Select returned with an error: %d", ret);
                 break;
             }
             default: {
                 IncomingCommand cmd;
                 if (!pb_decode_delimited(
                       &recv_stream, IncomingCommand_fields, &cmd)) {
-                    ESP_LOGE(TAG,
+                    // Most likely hit EOF (connection closed)
+                    ESP_LOGD(TAG,
                              "Failed to decode message: %s. Closing socket.",
                              PB_GET_ERROR(&recv_stream));
+
+                    xSemaphoreTake(send_sockets_mutex, portMAX_DELAY);
+                    for (auto &set : send_sockets) {
+                        set.erase(socket);
+                    }
+                    xSemaphoreGive(send_sockets_mutex);
+
                     close(socket);
                     vTaskDelete(NULL);
                     return;
@@ -137,41 +132,65 @@ void recv_socket_thread(void *arg)
                 // if message is a command, push recv'd message onto
                 // relevant queue
                 if (cmd.has_joint_cmd) {
-                    ESP_LOGI(TAG, "Got cmd_vel");
+                    xSemaphoreTake(consumer_queue_handle_mutex, portMAX_DELAY);
+                    for (auto queue : consumer_queues[cmd.msg_id]) {
+                        xQueueSend(queue, &cmd, 0);
+                    }
+                    xSemaphoreGive(consumer_queue_handle_mutex);
                 }
 
                 // if message is a subscribe request, add the socket to
                 // the relevant list
                 if (cmd.has_subscribe_request) {
-                    ESP_LOGI(TAG, "Got subscribe request");
-                    // TODO: This needs to be controlled by a mutex
+                    ESP_LOGI(TAG,
+                             "Got subscribe request %d from %d",
+                             cmd.subscribe_request.msg_id,
+                             socket);
+                    if (send_sockets_mutex == NULL) {
+                        ESP_LOGE(TAG,
+                                 "Subscription request created before mutex "
+                                 "initialized.");
+                        continue;
+                    }
+                    xSemaphoreTake(send_sockets_mutex, portMAX_DELAY);
                     send_sockets[static_cast<int>(cmd.subscribe_request.msg_id)]
-                      .push_back(socket);
+                      .insert(socket);
+                    xSemaphoreGive(send_sockets_mutex);
                 }
             }
         }
     }
+    vTaskDelete(NULL);
 }
 
 QueueHandle_t register_data_producer(OutgoingMessageID id)
 {
-    QueueHandle_t handle = xQueueCreate(QUEUE_LENGTH, sizeof(OutgoingData));
+    send_socket_thread_args *const args = new send_socket_thread_args(
+      { .queue_handle = xQueueCreate(QUEUE_LENGTH, sizeof(OutgoingData)),
+        .msg_id = id });
 
     xTaskCreatePinnedToCore(send_socket_thread,
                             "send_socket_thread",
                             SOCKET_THREAD_STACK_SIZE,
-                            static_cast<void *const>(handle),
+                            static_cast<void *const>(args),
                             10,
                             NULL,
-                            PRO_CPU_NUM);
+                            tskNO_AFFINITY);
 
-    return handle;
+    return args->queue_handle;
 };
 
 QueueHandle_t register_data_consumer(IncomingMessageID id)
 {
     QueueHandle_t handle = xQueueCreate(QUEUE_LENGTH, sizeof(IncomingCommand));
-    data_consumer_queues[static_cast<int>(id)].push_back(handle);
+
+    if (consumer_queue_handle_mutex != NULL) {
+        ESP_LOGE(TAG, "Attempting to add consumer after init.");
+        return nullptr;
+    }
+
+    consumer_queues[static_cast<int>(id)].push_back(handle);
+
     return handle;
 };
 
@@ -264,19 +283,21 @@ void main_task(void *arg)
                                 sock,
                                 10,
                                 NULL,
-                                PRO_CPU_NUM);
+                                tskNO_AFFINITY);
     }
     vTaskDelete(NULL);
 }
 
 void init()
 {
+    send_sockets_mutex = xSemaphoreCreateMutex();
+    consumer_queue_handle_mutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(main_task,
                             "socket_manager_main",
                             SOCKET_MAIN_TASK_STACK_SIZE,
                             NULL,
                             5,
                             NULL,
-                            PRO_CPU_NUM);
+                            tskNO_AFFINITY);
 }
 }

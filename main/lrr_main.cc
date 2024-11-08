@@ -1,14 +1,18 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "battery_driver.h"
 #include "drive_base_driver.h"
+#include "lidar_driver.h"
 
 #include "socket_manager.h"
 #include "wifi_manager.h"
 
 extern "C" void app_main(void)
 {
-    HardwareDriver *drivers[] = { new DriveBaseDriver() };
+    HardwareDriver *drivers[] = { new DriveBaseDriver(),
+                                  new LidarDriver(),
+                                  new BatteryDriver() };
 
     for (HardwareDriver *&driver : drivers) {
         driver->init();

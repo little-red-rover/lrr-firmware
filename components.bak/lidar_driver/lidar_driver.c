@@ -230,4 +230,6 @@ void lidar_driver_init()
                             10,
                             NULL,
                             APP_CPU_NUM);
+
+    ESP_LOGI(TAG, "LiDAR initialized");
 }
