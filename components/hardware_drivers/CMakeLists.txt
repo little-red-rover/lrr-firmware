@@ -3,6 +3,7 @@ idf_component_register(
                         drive_base/drive_base_driver.cc
                         drive_base/motor_driver.cc
                         lidar/lidar_driver.cc
+                        imu/imu_driver.cc
                         battery/battery_driver.cc
                     INCLUDE_DIRS
                         .

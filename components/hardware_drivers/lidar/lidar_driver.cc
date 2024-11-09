@@ -183,6 +183,8 @@ void LidarDriver::init()
     lidar_data_publish_queue_ =
       SocketManager::register_data_producer(OutgoingMessageID_LIDAR_DATA);
 
+    // Reading from the LiDAR is very resource intensive.
+    // Pin it to core 1 with priority 19 so it won't get interrupted
     xTaskCreatePinnedToCore(task_main_,
                             "lidar_task",
                             8192,
@@ -190,4 +192,6 @@ void LidarDriver::init()
                             19,
                             NULL,
                             APP_CPU_NUM);
+
+    ESP_LOGI(TAG, "LiDAR driver initialized");
 }

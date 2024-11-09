@@ -3,6 +3,7 @@
 
 #include "battery_driver.h"
 #include "drive_base_driver.h"
+#include "imu_driver.h"
 #include "lidar_driver.h"
 
 #include "socket_manager.h"
@@ -12,6 +13,7 @@ extern "C" void app_main(void)
 {
     HardwareDriver *drivers[] = { new DriveBaseDriver(),
                                   new LidarDriver(),
+                                  new IMUDriver(),
                                   new BatteryDriver() };
 
     for (HardwareDriver *&driver : drivers) {
