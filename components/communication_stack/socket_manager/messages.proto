@@ -66,8 +66,8 @@ message LaserScan
 
 message JointState
 {
-    Joint joint = 1;
-    TimeStamp time = 2;
+    TimeStamp time = 1;
+    Joint joint = 2;
     float position = 3;
     float velocity = 4;
     float effort = 5;
@@ -84,10 +84,17 @@ message IMU
     float accel_z = 7;
 }
 
+message Battery
+{
+    TimeStamp time = 1;
+    float voltage = 2;
+}
+
 message OutgoingData
 {
     OutgoingMessageID msg_id = 1;
     repeated LaserScan laser = 2 [ (nanopb).max_count = 20 ];
     optional JointState joint_state = 3;
     optional IMU imu = 4;
+    optional Battery battery = 5;
 }

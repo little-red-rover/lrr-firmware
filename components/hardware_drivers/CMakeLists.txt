@@ -16,4 +16,5 @@ idf_component_register(
                         esp_timer
                         espressif__pid_ctrl
                         communication_stack
+                        esp_adc
                     )

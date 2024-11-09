@@ -70,9 +70,9 @@ typedef struct _LaserScan {
 } LaserScan;
 
 typedef struct _JointState {
-    Joint joint;
     bool has_time;
     TimeStamp time;
+    Joint joint;
     float position;
     float velocity;
     float effort;
@@ -89,6 +89,12 @@ typedef struct _IMU {
     float accel_z;
 } IMU;
 
+typedef struct _Battery {
+    bool has_time;
+    TimeStamp time;
+    float voltage;
+} Battery;
+
 typedef struct _OutgoingData {
     OutgoingMessageID msg_id;
     pb_size_t laser_count;
@@ -97,6 +103,8 @@ typedef struct _OutgoingData {
     JointState joint_state;
     bool has_imu;
     IMU imu;
+    bool has_battery;
+    Battery battery;
 } OutgoingData;
 
 
@@ -128,6 +136,7 @@ extern "C" {
 #define JointState_joint_ENUMTYPE Joint
 
 
+
 #define OutgoingData_msg_id_ENUMTYPE OutgoingMessageID
 
 
@@ -137,17 +146,19 @@ extern "C" {
 #define JointCmd_init_default                    {false, TimeStamp_init_default, _Joint_MIN, 0}
 #define IncomingCommand_init_default             {_IncomingMessageID_MIN, false, SubscribeRequest_init_default, false, JointCmd_init_default}
 #define LaserScan_init_default                   {false, TimeStamp_init_default, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
-#define JointState_init_default                  {_Joint_MIN, false, TimeStamp_init_default, 0, 0, 0}
+#define JointState_init_default                  {false, TimeStamp_init_default, _Joint_MIN, 0, 0, 0}
 #define IMU_init_default                         {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0}
-#define OutgoingData_init_default                {_OutgoingMessageID_MIN, 0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointState_init_default, false, IMU_init_default}
+#define Battery_init_default                     {false, TimeStamp_init_default, 0}
+#define OutgoingData_init_default                {_OutgoingMessageID_MIN, 0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointState_init_default, false, IMU_init_default, false, Battery_init_default}
 #define TimeStamp_init_zero                      {0, 0}
 #define SubscribeRequest_init_zero               {_OutgoingMessageID_MIN}
 #define JointCmd_init_zero                       {false, TimeStamp_init_zero, _Joint_MIN, 0}
 #define IncomingCommand_init_zero                {_IncomingMessageID_MIN, false, SubscribeRequest_init_zero, false, JointCmd_init_zero}
 #define LaserScan_init_zero                      {false, TimeStamp_init_zero, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
-#define JointState_init_zero                     {_Joint_MIN, false, TimeStamp_init_zero, 0, 0, 0}
+#define JointState_init_zero                     {false, TimeStamp_init_zero, _Joint_MIN, 0, 0, 0}
 #define IMU_init_zero                            {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0}
-#define OutgoingData_init_zero                   {_OutgoingMessageID_MIN, 0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointState_init_zero, false, IMU_init_zero}
+#define Battery_init_zero                        {false, TimeStamp_init_zero, 0}
+#define OutgoingData_init_zero                   {_OutgoingMessageID_MIN, 0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointState_init_zero, false, IMU_init_zero, false, Battery_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define TimeStamp_sec_tag                        1
@@ -165,8 +176,8 @@ extern "C" {
 #define LaserScan_ranges_tag                     4
 #define LaserScan_intensities_tag                5
 #define LaserScan_end_angle_tag                  6
-#define JointState_joint_tag                     1
-#define JointState_time_tag                      2
+#define JointState_time_tag                      1
+#define JointState_joint_tag                     2
 #define JointState_position_tag                  3
 #define JointState_velocity_tag                  4
 #define JointState_effort_tag                    5
@@ -177,10 +188,13 @@ extern "C" {
 #define IMU_accel_x_tag                          5
 #define IMU_accel_y_tag                          6
 #define IMU_accel_z_tag                          7
+#define Battery_time_tag                         1
+#define Battery_voltage_tag                      2
 #define OutgoingData_msg_id_tag                  1
 #define OutgoingData_laser_tag                   2
 #define OutgoingData_joint_state_tag             3
 #define OutgoingData_imu_tag                     4
+#define OutgoingData_battery_tag                 5
 
 /* Struct field encoding specification for nanopb */
 #define TimeStamp_FIELDLIST(X, a) \
@@ -223,8 +237,8 @@ X(a, STATIC,   SINGULAR, UINT32,   end_angle,         6)
 #define LaserScan_time_MSGTYPE TimeStamp
 
 #define JointState_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, UENUM,    joint,             1) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  time,              2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  time,              1) \
+X(a, STATIC,   SINGULAR, UENUM,    joint,             2) \
 X(a, STATIC,   SINGULAR, FLOAT,    position,          3) \
 X(a, STATIC,   SINGULAR, FLOAT,    velocity,          4) \
 X(a, STATIC,   SINGULAR, FLOAT,    effort,            5)
@@ -244,16 +258,25 @@ X(a, STATIC,   SINGULAR, FLOAT,    accel_z,           7)
 #define IMU_DEFAULT NULL
 #define IMU_time_MSGTYPE TimeStamp
 
+#define Battery_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  time,              1) \
+X(a, STATIC,   SINGULAR, FLOAT,    voltage,           2)
+#define Battery_CALLBACK NULL
+#define Battery_DEFAULT NULL
+#define Battery_time_MSGTYPE TimeStamp
+
 #define OutgoingData_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    msg_id,            1) \
 X(a, STATIC,   REPEATED, MESSAGE,  laser,             2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  joint_state,       3) \
-X(a, STATIC,   OPTIONAL, MESSAGE,  imu,               4)
+X(a, STATIC,   OPTIONAL, MESSAGE,  imu,               4) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  battery,           5)
 #define OutgoingData_CALLBACK NULL
 #define OutgoingData_DEFAULT NULL
 #define OutgoingData_laser_MSGTYPE LaserScan
 #define OutgoingData_joint_state_MSGTYPE JointState
 #define OutgoingData_imu_MSGTYPE IMU
+#define OutgoingData_battery_MSGTYPE Battery
 
 extern const pb_msgdesc_t TimeStamp_msg;
 extern const pb_msgdesc_t SubscribeRequest_msg;
@@ -262,6 +285,7 @@ extern const pb_msgdesc_t IncomingCommand_msg;
 extern const pb_msgdesc_t LaserScan_msg;
 extern const pb_msgdesc_t JointState_msg;
 extern const pb_msgdesc_t IMU_msg;
+extern const pb_msgdesc_t Battery_msg;
 extern const pb_msgdesc_t OutgoingData_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
@@ -272,16 +296,18 @@ extern const pb_msgdesc_t OutgoingData_msg;
 #define LaserScan_fields &LaserScan_msg
 #define JointState_fields &JointState_msg
 #define IMU_fields &IMU_msg
+#define Battery_fields &Battery_msg
 #define OutgoingData_fields &OutgoingData_msg
 
 /* Maximum encoded size of messages (where known) */
+#define Battery_size                             24
 #define IMU_size                                 49
 #define IncomingCommand_size                     34
 #define JointCmd_size                            26
 #define JointState_size                          36
 #define LaserScan_size                           115
 #define MESSAGES_PB_H_MAX_SIZE                   OutgoingData_size
-#define OutgoingData_size                        2431
+#define OutgoingData_size                        2457
 #define SubscribeRequest_size                    2
 #define TimeStamp_size                           17
 

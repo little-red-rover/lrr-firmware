@@ -27,6 +27,9 @@ PB_BIND(JointState, JointState, AUTO)
 PB_BIND(IMU, IMU, AUTO)
 
 
+PB_BIND(Battery, Battery, AUTO)
+
+
 PB_BIND(OutgoingData, OutgoingData, 2)
 
 
