@@ -16,7 +16,7 @@
 
 #define TAG "battery_driver"
 
-#define PUBLISH_LOOP_PERIOD_MS 100
+#define PUBLISH_LOOP_PERIOD_MS 1000
 
 // https://docs.espressif.com/projects/esp-idf/en/v5.3.1/esp32s3/api-reference/peripherals/gpio.html
 #define BATTERY_SENSE_PIN GPIO_NUM_15
