@@ -36,6 +36,7 @@
 #include "messages.pb.h"
 #include "portmacro.h"
 #include "socket_manager.h"
+#include "xtensa_context.h"
 
 #define PWM_TIMER_RESOLUTION LEDC_TIMER_10_BIT
 
@@ -44,7 +45,7 @@
 
 // Max change to motor power per pid cycle
 // Reduces current surges
-#define MAX_JERK 0.25
+#define MAX_JERK 0.15
 
 // Minimum % duty that must be applied to affect any motion
 #define HYSTERESIS 0.45
@@ -126,19 +127,6 @@ void Encoder::update(float dt)
     position_ = PULSES_TO_RAD(count_);
 }
 
-void Motor::set_enabled(bool enabled)
-{
-    is_enabled_ = enabled;
-
-    gpio_set_direction(enable_pin_, GPIO_MODE_OUTPUT);
-
-    if (enabled) {
-        gpio_set_level(enable_pin_, 1);
-    } else {
-        gpio_set_level(enable_pin_, 0);
-    }
-}
-
 void Motor::set_effort_(float power)
 {
     power = clamp(power, -1.0, 1.0);
@@ -177,9 +165,6 @@ void Motor::set_velocity(float velocity)
 void Motor::pid_timer_callback_(void *arg)
 {
     Motor *motor = (Motor *)arg;
-
-    if (!motor->is_enabled_)
-        return;
 
     motor->encoder_.update((1000.0 / PID_LOOP_PERIOD_MS));
     float error = motor->cmd_velocity_ - motor->encoder_.velocity_;
@@ -256,17 +241,13 @@ Motor::Motor(Joint joint_name,
              ledc_channel_t chan_b,
              gpio_num_t encoder_a,
              gpio_num_t encoder_b,
-             gpio_num_t enable_pin,
              bool reversed)
   : joint_name_(joint_name)
   , encoder_{ Encoder(encoder_a, encoder_b) }
   , chan_a_{ chan_a }
   , chan_b_{ chan_b }
   , reversed_{ reversed }
-  , enable_pin_{ enable_pin }
 {
-    set_enabled(is_enabled_);
-
     ledc_timer_config_t pwm_timer = { .speed_mode = LEDC_LOW_SPEED_MODE,
                                       .duty_resolution = PWM_TIMER_RESOLUTION,
                                       .timer_num = LEDC_TIMER_0,

@@ -102,7 +102,7 @@ static size_t scan_packet_num = 0;
 void publish_packet()
 {
     if (tx_queue != NULL &&
-        xQueueSend(tx_queue, (void *)&scan_msg, portMAX_DELAY) != pdTRUE) {
+        xQueueSend(tx_queue, (void *)&scan_msg, 0) != pdTRUE) {
         ESP_LOGE(TAG, "Failed to push message onto queue, delaying...");
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }

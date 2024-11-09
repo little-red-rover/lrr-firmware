@@ -279,7 +279,7 @@ void socket_mgr_init()
                             "socket_task",
                             SOCKET_TASK_STACK_SIZE,
                             NULL,
-                            10,
+                            15,
                             NULL,
                             PRO_CPU_NUM);
 }

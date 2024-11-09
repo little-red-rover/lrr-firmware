@@ -24,6 +24,7 @@
 
 #include "dhcpserver/dhcpserver.h"
 
+#include "esp_netif.h"
 #include "lwip/lwip_napt.h"
 #include <lwip/netdb.h>
 

@@ -23,6 +23,7 @@
 #include "pb_decode.h"
 #include "pb_encode.h"
 #include "portmacro.h"
+#include "soc/soc.h"
 
 namespace SocketManager {
 
@@ -33,7 +34,7 @@ namespace SocketManager {
 
 #define MAX_CLIENTS 10
 
-#define QUEUE_LENGTH 2
+#define QUEUE_LENGTH 10
 
 #define PORT 8001
 
@@ -69,8 +70,10 @@ void send_socket_thread(void *arg)
         }
 
         xSemaphoreTake(send_sockets_mutex, portMAX_DELAY);
+        auto socket_set = send_sockets[args.msg_id];
+        xSemaphoreGive(send_sockets_mutex);
         // Send message to all subscribed sockets
-        for (auto socket : send_sockets[args.msg_id]) {
+        for (auto socket : socket_set) {
             pb_ostream_t send_stream = pb_ostream_from_socket(socket);
             if (!pb_encode_delimited(
                   &send_stream, OutgoingData_fields, &data)) {
@@ -80,7 +83,6 @@ void send_socket_thread(void *arg)
                          socket);
             }
         }
-        xSemaphoreGive(send_sockets_mutex);
     }
     ESP_LOGE(TAG, "Queue recieve failed.");
     vTaskDelete(NULL);
@@ -173,7 +175,7 @@ QueueHandle_t register_data_producer(OutgoingMessageID id)
                             "send_socket_thread",
                             SOCKET_THREAD_STACK_SIZE,
                             static_cast<void *const>(args),
-                            10,
+                            5,
                             NULL,
                             tskNO_AFFINITY);
 
@@ -281,7 +283,7 @@ void main_task(void *arg)
                                 "recv_socket_thread",
                                 SOCKET_THREAD_STACK_SIZE,
                                 sock,
-                                10,
+                                5,
                                 NULL,
                                 tskNO_AFFINITY);
     }

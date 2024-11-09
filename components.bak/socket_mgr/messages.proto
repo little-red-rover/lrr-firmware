@@ -18,15 +18,11 @@ message TwistCmd
 message LaserScan
 {
     TimeStamp time = 1;
-    float angle_min = 2;
-    float angle_max = 3;
-    float angle_increment = 4;
-    float time_increment = 5;
-    float scan_time = 6;
-    float range_min = 7;
-    float range_max = 8;
-    repeated float ranges = 9 [ (nanopb).max_count = 12 ];
-    repeated float intensities = 10 [ (nanopb).max_count = 12 ];
+    uint16 speed = 2;
+    uint16 start_angle = 2;
+    repeated uint16 ranges = 9 [ (nanopb).max_count = 12 ];
+    repeated uint8 intensities = 10 [ (nanopb).max_count = 12 ];
+    uint16 end_angle = 2;
 }
 
 message JointStates
@@ -52,7 +48,7 @@ message IMU
 
 message NetworkPacket
 {
-    repeated LaserScan laser = 1 [ (nanopb).max_count = 10 ];
+    repeated LaserScan laser = 1 [ (nanopb).max_count = 20 ];
     optional JointStates joint_states = 2;
     optional TwistCmd cmd_vel = 3;
     optional IMU imu = 4;

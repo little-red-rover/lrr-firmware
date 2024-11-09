@@ -37,10 +37,8 @@ class Motor
           ledc_channel_t chan_b,
           gpio_num_t encoder_a,
           gpio_num_t encoder_b,
-          gpio_num_t enable,
           bool reversed);
 
-    void set_enabled(bool enabled);
     void set_velocity(float speed);
 
   private:
@@ -49,8 +47,6 @@ class Motor
     Encoder encoder_;
 
     void set_effort_(float power);
-
-    bool is_enabled_{ false };
 
     static void pid_timer_callback_(void *arg);
     pid_ctrl_block_handle_t pid_controller_;

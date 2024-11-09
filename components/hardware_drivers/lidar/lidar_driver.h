@@ -1,7 +1,10 @@
 #pragma once
 
+#include "freertos/idf_additions.h"
 #include "hardware_driver.h"
 #include <cstdint>
+
+#include "messages.pb.h"
 
 #define POINT_PER_UART_PACKET 12
 
@@ -29,4 +32,12 @@ class LidarDriver : public HardwareDriver
         uint16_t timestamp;
         uint8_t crc8;
     } __attribute__((packed)) LiDARFrame;
+
+    QueueHandle_t lidar_data_publish_queue_;
+    void publish_message_(OutgoingData msg);
+
+    static void add_scan_to_message_(const LidarDriver::LiDARFrame &frame,
+                                     OutgoingData &msg);
+
+    static void task_main_(void *arg);
 };

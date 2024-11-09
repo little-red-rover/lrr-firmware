@@ -60,26 +60,22 @@ typedef struct _IncomingCommand {
 typedef struct _LaserScan {
     bool has_time;
     TimeStamp time;
-    float angle_min;
-    float angle_max;
-    float angle_increment;
-    float time_increment;
-    float scan_time;
-    float range_min;
-    float range_max;
+    uint16_t speed;
+    uint16_t start_angle;
     pb_size_t ranges_count;
-    float ranges[12];
+    uint16_t ranges[12];
     pb_size_t intensities_count;
-    float intensities[12];
+    uint8_t intensities[12];
+    uint16_t end_angle;
 } LaserScan;
 
 typedef struct _JointState {
     Joint joint;
     bool has_time;
     TimeStamp time;
-    double position;
-    double velocity;
-    double effort;
+    float position;
+    float velocity;
+    float effort;
 } JointState;
 
 typedef struct _IMU {
@@ -96,7 +92,7 @@ typedef struct _IMU {
 typedef struct _OutgoingData {
     OutgoingMessageID msg_id;
     pb_size_t laser_count;
-    LaserScan laser[10];
+    LaserScan laser[20];
     bool has_joint_state;
     JointState joint_state;
     bool has_imu;
@@ -140,18 +136,18 @@ extern "C" {
 #define SubscribeRequest_init_default            {_OutgoingMessageID_MIN}
 #define JointCmd_init_default                    {false, TimeStamp_init_default, _Joint_MIN, 0}
 #define IncomingCommand_init_default             {_IncomingMessageID_MIN, false, SubscribeRequest_init_default, false, JointCmd_init_default}
-#define LaserScan_init_default                   {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define LaserScan_init_default                   {false, TimeStamp_init_default, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 #define JointState_init_default                  {_Joint_MIN, false, TimeStamp_init_default, 0, 0, 0}
 #define IMU_init_default                         {false, TimeStamp_init_default, 0, 0, 0, 0, 0, 0}
-#define OutgoingData_init_default                {_OutgoingMessageID_MIN, 0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointState_init_default, false, IMU_init_default}
+#define OutgoingData_init_default                {_OutgoingMessageID_MIN, 0, {LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default, LaserScan_init_default}, false, JointState_init_default, false, IMU_init_default}
 #define TimeStamp_init_zero                      {0, 0}
 #define SubscribeRequest_init_zero               {_OutgoingMessageID_MIN}
 #define JointCmd_init_zero                       {false, TimeStamp_init_zero, _Joint_MIN, 0}
 #define IncomingCommand_init_zero                {_IncomingMessageID_MIN, false, SubscribeRequest_init_zero, false, JointCmd_init_zero}
-#define LaserScan_init_zero                      {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}
+#define LaserScan_init_zero                      {false, TimeStamp_init_zero, 0, 0, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0, {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 #define JointState_init_zero                     {_Joint_MIN, false, TimeStamp_init_zero, 0, 0, 0}
 #define IMU_init_zero                            {false, TimeStamp_init_zero, 0, 0, 0, 0, 0, 0}
-#define OutgoingData_init_zero                   {_OutgoingMessageID_MIN, 0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointState_init_zero, false, IMU_init_zero}
+#define OutgoingData_init_zero                   {_OutgoingMessageID_MIN, 0, {LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero, LaserScan_init_zero}, false, JointState_init_zero, false, IMU_init_zero}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define TimeStamp_sec_tag                        1
@@ -164,15 +160,11 @@ extern "C" {
 #define IncomingCommand_subscribe_request_tag    2
 #define IncomingCommand_joint_cmd_tag            3
 #define LaserScan_time_tag                       1
-#define LaserScan_angle_min_tag                  2
-#define LaserScan_angle_max_tag                  3
-#define LaserScan_angle_increment_tag            4
-#define LaserScan_time_increment_tag             5
-#define LaserScan_scan_time_tag                  6
-#define LaserScan_range_min_tag                  7
-#define LaserScan_range_max_tag                  8
-#define LaserScan_ranges_tag                     9
-#define LaserScan_intensities_tag                10
+#define LaserScan_speed_tag                      2
+#define LaserScan_start_angle_tag                3
+#define LaserScan_ranges_tag                     4
+#define LaserScan_intensities_tag                5
+#define LaserScan_end_angle_tag                  6
 #define JointState_joint_tag                     1
 #define JointState_time_tag                      2
 #define JointState_position_tag                  3
@@ -221,15 +213,11 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  joint_cmd,         3)
 
 #define LaserScan_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  time,              1) \
-X(a, STATIC,   SINGULAR, FLOAT,    angle_min,         2) \
-X(a, STATIC,   SINGULAR, FLOAT,    angle_max,         3) \
-X(a, STATIC,   SINGULAR, FLOAT,    angle_increment,   4) \
-X(a, STATIC,   SINGULAR, FLOAT,    time_increment,    5) \
-X(a, STATIC,   SINGULAR, FLOAT,    scan_time,         6) \
-X(a, STATIC,   SINGULAR, FLOAT,    range_min,         7) \
-X(a, STATIC,   SINGULAR, FLOAT,    range_max,         8) \
-X(a, STATIC,   REPEATED, FLOAT,    ranges,            9) \
-X(a, STATIC,   REPEATED, FLOAT,    intensities,      10)
+X(a, STATIC,   SINGULAR, UINT32,   speed,             2) \
+X(a, STATIC,   SINGULAR, UINT32,   start_angle,       3) \
+X(a, STATIC,   REPEATED, UINT32,   ranges,            4) \
+X(a, STATIC,   REPEATED, UINT32,   intensities,       5) \
+X(a, STATIC,   SINGULAR, UINT32,   end_angle,         6)
 #define LaserScan_CALLBACK NULL
 #define LaserScan_DEFAULT NULL
 #define LaserScan_time_MSGTYPE TimeStamp
@@ -237,9 +225,9 @@ X(a, STATIC,   REPEATED, FLOAT,    intensities,      10)
 #define JointState_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, UENUM,    joint,             1) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  time,              2) \
-X(a, STATIC,   SINGULAR, DOUBLE,   position,          3) \
-X(a, STATIC,   SINGULAR, DOUBLE,   velocity,          4) \
-X(a, STATIC,   SINGULAR, DOUBLE,   effort,            5)
+X(a, STATIC,   SINGULAR, FLOAT,    position,          3) \
+X(a, STATIC,   SINGULAR, FLOAT,    velocity,          4) \
+X(a, STATIC,   SINGULAR, FLOAT,    effort,            5)
 #define JointState_CALLBACK NULL
 #define JointState_DEFAULT NULL
 #define JointState_time_MSGTYPE TimeStamp
@@ -290,10 +278,10 @@ extern const pb_msgdesc_t OutgoingData_msg;
 #define IMU_size                                 49
 #define IncomingCommand_size                     34
 #define JointCmd_size                            26
-#define JointState_size                          48
-#define LaserScan_size                           174
+#define JointState_size                          36
+#define LaserScan_size                           115
 #define MESSAGES_PB_H_MAX_SIZE                   OutgoingData_size
-#define OutgoingData_size                        1873
+#define OutgoingData_size                        2431
 #define SubscribeRequest_size                    2
 #define TimeStamp_size                           17
 

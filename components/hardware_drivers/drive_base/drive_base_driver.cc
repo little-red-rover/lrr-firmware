@@ -1,4 +1,5 @@
 #include "drive_base_driver.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
 #include "hal/ledc_types.h"
 #include "messages.pb.h"
@@ -35,7 +36,6 @@ DriveBaseDriver::DriveBaseDriver()
                       LEFT_MOTOR_PWM_B_CHANNEL,
                       LEFT_ENCODER_PIN_A,
                       LEFT_ENCODER_PIN_B,
-                      MOTOR_ENABLE_PIN,
                       false))
   , right_motor_(Motor(Joint_RIGHT_WHEEL,
                        RIGHT_MOTOR_PWM_A_PIN,
@@ -44,18 +44,30 @@ DriveBaseDriver::DriveBaseDriver()
                        RIGHT_MOTOR_PWM_B_CHANNEL,
                        RIGHT_ENCODER_PIN_A,
                        RIGHT_ENCODER_PIN_B,
-                       MOTOR_ENABLE_PIN,
                        true)) {};
 
 void DriveBaseDriver::init()
 {
     right_motor_.set_velocity(0.0);
-    right_motor_.set_enabled(true);
 
     left_motor_.set_velocity(0.0);
-    left_motor_.set_enabled(true);
+
+    set_enabled(true);
 
     SocketManager::register_data_consumer(IncomingMessageID_JOINT_CMD);
 
     ESP_LOGI(TAG, "Drive base initialized");
+}
+
+void DriveBaseDriver::set_enabled(bool enabled)
+{
+    is_enabled_ = enabled;
+
+    gpio_set_direction(MOTOR_ENABLE_PIN, GPIO_MODE_OUTPUT);
+
+    if (enabled) {
+        gpio_set_level(MOTOR_ENABLE_PIN, 1);
+    } else {
+        gpio_set_level(MOTOR_ENABLE_PIN, 0);
+    }
 }
