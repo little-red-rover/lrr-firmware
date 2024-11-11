@@ -44,7 +44,9 @@ DriveBaseDriver::DriveBaseDriver()
                        RIGHT_MOTOR_PWM_B_CHANNEL,
                        RIGHT_ENCODER_PIN_A,
                        RIGHT_ENCODER_PIN_B,
-                       true)) {};
+                       true)) {
+
+  };
 
 void DriveBaseDriver::init()
 {
@@ -52,9 +54,9 @@ void DriveBaseDriver::init()
 
     left_motor_.set_velocity(0.0);
 
-    set_enabled(true);
-
     SocketManager::register_data_consumer(IncomingMessageID_JOINT_CMD);
+
+    set_enabled(true);
 
     ESP_LOGI(TAG, "Drive base initialized");
 }

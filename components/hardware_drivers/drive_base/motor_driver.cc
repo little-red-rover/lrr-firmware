@@ -19,6 +19,8 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/pulse_cnt.h"
+#include "esp_err.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 
 #include "freertos/idf_additions.h"
@@ -36,7 +38,6 @@
 #include "messages.pb.h"
 #include "portmacro.h"
 #include "socket_manager.h"
-#include "xtensa_context.h"
 
 #define PWM_TIMER_RESOLUTION LEDC_TIMER_10_BIT
 
@@ -134,24 +135,26 @@ void Motor::set_effort_(float power)
     applied_effort_ =
       clamp(power, applied_effort_ - MAX_JERK, applied_effort_ + MAX_JERK);
     if (applied_effort_ > 0) {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE,
-                      chan_b_,
-                      (uint32_t)((applied_effort_ + HYSTERESIS) *
-                                 (float)(1 << PWM_TIMER_RESOLUTION)));
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_a_, 0);
+        ESP_ERROR_CHECK(
+          ledc_set_duty(LEDC_LOW_SPEED_MODE,
+                        chan_b_,
+                        (uint32_t)((applied_effort_ + HYSTERESIS) *
+                                   (float)(1 << PWM_TIMER_RESOLUTION))));
+        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_a_, 0));
     } else if (applied_effort_ < 0) {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0);
-        ledc_set_duty(LEDC_LOW_SPEED_MODE,
-                      chan_a_,
-                      (uint32_t)((-applied_effort_ + HYSTERESIS) *
-                                 (float)(1 << PWM_TIMER_RESOLUTION)));
+        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0));
+        ESP_ERROR_CHECK(
+          ledc_set_duty(LEDC_LOW_SPEED_MODE,
+                        chan_a_,
+                        (uint32_t)((-applied_effort_ + HYSTERESIS) *
+                                   (float)(1 << PWM_TIMER_RESOLUTION))));
     } else {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0);
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_a_, 0);
+        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_b_, 0));
+        ESP_ERROR_CHECK(ledc_set_duty(LEDC_LOW_SPEED_MODE, chan_a_, 0));
     }
 
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, chan_a_);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, chan_b_);
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, chan_a_));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_LOW_SPEED_MODE, chan_b_));
 }
 
 void Motor::set_velocity(float velocity)
@@ -243,10 +246,14 @@ Motor::Motor(Joint joint_name,
              gpio_num_t encoder_b,
              bool reversed)
   : joint_name_(joint_name)
-  , encoder_{ Encoder(encoder_a, encoder_b) }
-  , chan_a_{ chan_a }
-  , chan_b_{ chan_b }
-  , reversed_{ reversed }
+  , encoder_(Encoder(encoder_a, encoder_b))
+  , chan_a_(chan_a)
+  , chan_b_(chan_b)
+  , reversed_(reversed)
+  , cmd_velocity_(0.0)
+  , cmd_position_(0.0)
+  , cmd_effort_(0.0)
+  , applied_effort_(0.0)
 {
     ledc_timer_config_t pwm_timer = { .speed_mode = LEDC_LOW_SPEED_MODE,
                                       .duty_resolution = PWM_TIMER_RESOLUTION,
@@ -261,13 +268,13 @@ Motor::Motor(Joint joint_name,
     configure_pwm(chan_b, pwm_b);
 
     pid_ctrl_parameter_t pid_runtime_param = {
-        .kp = 0.05,
-        .ki = 0.01,
+        .kp = 0.1,
+        .ki = 0.02,
         .kd = 0.0,
         .max_output = 1.0,
         .min_output = -1.0,
-        .max_integral = 0.05,
-        .min_integral = -0.05,
+        .max_integral = 0.10,
+        .min_integral = -0.10,
         .cal_type = PID_CAL_TYPE_INCREMENTAL,
     };
 
