@@ -81,7 +81,7 @@ int IMUDriver::read_acceleration_(float *x, float *y, float *z)
 
     read_registers_(LSM6DS3_OUTX_L_XL, (uint8_t *)data, sizeof(data));
 
-    *x = -(data[1] * 2.0 / 32768.0) * GRAV_ACCEL;
+    *x = (data[1] * 2.0 / 32768.0) * GRAV_ACCEL;
     *y = -(data[0] * 2.0 / 32768.0) * GRAV_ACCEL;
     *z = -(data[2] * 2.0 / 32768.0) * GRAV_ACCEL;
 
