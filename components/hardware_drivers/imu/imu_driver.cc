@@ -6,6 +6,7 @@
 
 #include "messages.pb.h"
 #include "socket_manager.h"
+#include "status_led_driver.h"
 #include <cmath>
 #include <ctime>
 
@@ -190,6 +191,7 @@ void IMUDriver::init()
 
     if (read_register_(LSM6DS3_WHO_AM_I_REG) != 0x69 &&
         read_register_(LSM6DS3_WHO_AM_I_REG) != 0x6C) {
+        StatusLedDriver::set_status(StatusLedDriver::eImuInitFailed);
         ESP_LOGE(TAG, "Failed to initialize IMU");
     }
 

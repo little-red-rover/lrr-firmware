@@ -5,12 +5,16 @@ idf_component_register(
                         lidar/lidar_driver.cc
                         imu/imu_driver.cc
                         battery/battery_driver.cc
+                        status_led/status_led_driver.cc
                     INCLUDE_DIRS
                         .
                         drive_base
                         imu
                         lidar
                         battery
+                        status_led
+                    REQUIRES
+                        zorxx__neopixel
                     PRIV_REQUIRES
                         driver
                         esp_timer

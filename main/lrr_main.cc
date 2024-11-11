@@ -7,6 +7,7 @@
 #include "lidar_driver.h"
 
 #include "socket_manager.h"
+#include "status_led_driver.h"
 #include "wifi_manager.h"
 
 extern "C" void app_main(void)
@@ -14,7 +15,10 @@ extern "C" void app_main(void)
     HardwareDriver *drivers[] = { new DriveBaseDriver(),
                                   new LidarDriver(),
                                   new IMUDriver(),
-                                  new BatteryDriver() };
+                                  new BatteryDriver(),
+                                  new StatusLedDriver() };
+
+    StatusLedDriver::set_status(StatusLedDriver::eSystemGood);
 
     for (HardwareDriver *&driver : drivers) {
         driver->init();

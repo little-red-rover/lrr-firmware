@@ -25,6 +25,8 @@
 #include "portmacro.h"
 #include "soc/soc.h"
 
+#include "status_led_driver.h"
+
 namespace SocketManager {
 
 #define TAG "SocketManager"
@@ -121,10 +123,17 @@ void recv_socket_thread(void *arg)
                              PB_GET_ERROR(&recv_stream));
 
                     xSemaphoreTake(send_sockets_mutex, portMAX_DELAY);
+                    size_t num_connections = 0;
                     for (auto &set : send_sockets) {
                         set.erase(socket);
+                        num_connections += set.size();
                     }
                     xSemaphoreGive(send_sockets_mutex);
+
+                    if (num_connections == 0) {
+                        StatusLedDriver::set_status(
+                          StatusLedDriver::eAgentDisconnected);
+                    }
 
                     close(socket);
                     vTaskDelete(NULL);
@@ -277,6 +286,8 @@ void main_task(void *arg)
                  "Connection accepted from IP:%s",
                  get_clients_address(&source_addr));
 
+        StatusLedDriver::set_status(StatusLedDriver::eAgentConnected);
+
         set_keep_alive(*sock);
 
         xTaskCreatePinnedToCore(recv_socket_thread,
@@ -292,6 +303,7 @@ void main_task(void *arg)
 
 void init()
 {
+    StatusLedDriver::set_status(StatusLedDriver::eAgentDisconnected);
     send_sockets_mutex = xSemaphoreCreateMutex();
     consumer_queue_handle_mutex = xSemaphoreCreateMutex();
     xTaskCreatePinnedToCore(main_task,

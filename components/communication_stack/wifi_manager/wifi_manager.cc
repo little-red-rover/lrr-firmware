@@ -30,6 +30,7 @@
 
 #include "esp_mac.h"
 
+#include "status_led_driver.h"
 #include "wifi_manager.h"
 
 namespace WifiManager {
@@ -230,6 +231,8 @@ esp_err_t start_webserver()
 
 void init()
 {
+    StatusLedDriver::set_status(StatusLedDriver::eWifiProvisioning);
+
     /* NVS INIT */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
@@ -325,6 +328,7 @@ void init()
     ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
 
     if (!provisioned) {
+        StatusLedDriver::set_status(StatusLedDriver::eWifiProvisioning);
         ESP_ERROR_CHECK(esp_event_handler_register(
           IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
 
@@ -365,6 +369,7 @@ void init()
 
     if (wifi_ret & WIFI_CONNECTED_BIT) {
         ESP_LOGI(TAG, "Device is provisioned and connected.");
+        StatusLedDriver::set_status(StatusLedDriver::eWifiConnected);
     } else {
         // Error handling is for chumps
         ESP_LOGE(TAG, "Wifi connection timed out. Rebooting...");

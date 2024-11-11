@@ -2,6 +2,7 @@
 
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
@@ -10,6 +11,7 @@
 #include "portmacro.h"
 #include "soc/soc.h"
 #include "socket_manager.h"
+#include "status_led_driver.h"
 #include <cmath>
 #include <ctime>
 
@@ -172,13 +174,19 @@ void LidarDriver::init()
     };
     int intr_alloc_flags = 0;
 
-    ESP_ERROR_CHECK(uart_driver_install(
-      LIDAR_UART_PORT_NUM, BUF_SIZE * 2, 0, 0, NULL, intr_alloc_flags));
-
-    ESP_ERROR_CHECK(uart_param_config(LIDAR_UART_PORT_NUM, &uart_config));
-
-    ESP_ERROR_CHECK(uart_set_pin(
-      LIDAR_UART_PORT_NUM, LIDAR_TXD, LIDAR_RXD, LIDAR_RTS, LIDAR_CTS));
+    if (uart_driver_install(
+          LIDAR_UART_PORT_NUM, BUF_SIZE * 2, 0, 0, NULL, intr_alloc_flags) !=
+          ESP_OK ||
+        uart_param_config(LIDAR_UART_PORT_NUM, &uart_config) != ESP_OK ||
+        uart_set_pin(
+          LIDAR_UART_PORT_NUM, LIDAR_TXD, LIDAR_RXD, LIDAR_RTS, LIDAR_CTS) !=
+          ESP_OK ||
+        uart_set_pin(
+          LIDAR_UART_PORT_NUM, LIDAR_TXD, LIDAR_RXD, LIDAR_RTS, LIDAR_CTS) !=
+          ESP_OK) {
+        StatusLedDriver::set_status(StatusLedDriver::eLidarInitFailed);
+        ESP_LOGE(TAG, "Failed to initialize LiDAR");
+    }
 
     lidar_data_publish_queue_ =
       SocketManager::register_data_producer(OutgoingMessageID_LIDAR_DATA);
