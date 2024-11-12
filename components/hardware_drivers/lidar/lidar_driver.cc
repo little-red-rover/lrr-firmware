@@ -140,16 +140,13 @@ void LidarDriver::task_main_(void *arg)
 
         uint8_t checksum = CalCRC8(reinterpret_cast<uint8_t *>(&scan_data),
                                    sizeof(scan_data) - 1);
-        if (checksum != scan_data.crc8) {
-        } else {
-            lidar_driver->add_scan_to_message_(scan_data, msg);
+        lidar_driver->add_scan_to_message_(scan_data, msg);
 
-            // If message is full, send it
-            if (msg.laser_count >= UART_PACKETS_PER_MESSAGE) {
-                lidar_driver->publish_message_(msg);
-                // And reset the count
-                msg.laser_count = 0;
-            }
+        // If message is full, send it
+        if (msg.laser_count >= UART_PACKETS_PER_MESSAGE) {
+            lidar_driver->publish_message_(msg);
+            // And reset the count
+            msg.laser_count = 0;
         }
     }
     vTaskDelete(NULL);
@@ -161,7 +158,7 @@ void LidarDriver::init()
 {
     // Highest scanning frequency
     gpio_set_direction(LIDAR_PWM, GPIO_MODE_OUTPUT);
-    gpio_set_level(LIDAR_PWM, 1);
+    gpio_set_level(LIDAR_PWM, 0);
 
     // Init UART
     uart_config_t uart_config = {
