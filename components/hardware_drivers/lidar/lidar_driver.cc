@@ -117,6 +117,7 @@ void LidarDriver::task_main_(void *arg)
 
     // Init message structure
     OutgoingData msg = OutgoingData_init_default;
+    msg.msg_id = OutgoingMessageID_LIDAR_DATA;
     msg.laser_count = 0;
 
     uint8_t start_chars[2] = { 0x00, 0x00 };

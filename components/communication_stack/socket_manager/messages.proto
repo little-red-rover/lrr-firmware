@@ -9,12 +9,6 @@ message TimeStamp
     uint32 nanosec = 2;
 }
 
-enum Joint
-{
-    LEFT_WHEEL = 0;
-    RIGHT_WHEEL = 1;
-}
-
 // Incoming
 enum IncomingMessageID
 {
@@ -30,8 +24,8 @@ message SubscribeRequest
 message JointCmd
 {
     TimeStamp time = 1;
-    Joint joint = 2;
-    float vel = 3;
+    float left_vel = 2;
+    float right_vel = 3;
 }
 
 message IncomingCommand
@@ -67,10 +61,12 @@ message LaserScan
 message JointState
 {
     TimeStamp time = 1;
-    Joint joint = 2;
-    float position = 3;
-    float velocity = 4;
-    float effort = 5;
+    float left_position = 2;
+    float left_velocity = 3;
+    float left_effort = 4;
+    float right_position = 5;
+    float right_velocity = 6;
+    float right_effort = 7;
 }
 
 message IMU

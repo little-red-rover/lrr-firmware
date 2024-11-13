@@ -16,28 +16,18 @@
 
 #include "motor_driver.h"
 
-#include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "driver/pulse_cnt.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 
-#include "freertos/idf_additions.h"
-#include "freertos/task.h"
-
-#include "hal/gpio_types.h"
 #include "hal/pcnt_types.h"
 
 #include "pid_ctrl.h"
-#include <assert.h>
 #include <cstdio>
 #include <ctime>
 #include <math.h>
-
-#include "messages.pb.h"
-#include "portmacro.h"
-#include "socket_manager.h"
 
 #define PWM_TIMER_RESOLUTION LEDC_TIMER_10_BIT
 
@@ -56,8 +46,6 @@
 #define PULSES_PER_ROTATION 2340.0
 #define PULSES_TO_RAD(pulses)                                                  \
     (((float)pulses / PULSES_PER_ROTATION) * (2 * M_PI))
-
-#define PUBLISH_LOOP_PERIOD_MS 100.0
 
 double clamp(float d, float min, float max)
 {
@@ -192,61 +180,14 @@ static void configure_pwm(ledc_channel_t channel, int gpio)
     ESP_ERROR_CHECK(ledc_channel_config(&pwm_channel));
 }
 
-void Motor::publish_timer_callback_(void *arg)
-{
-    Motor *motor = (Motor *)arg;
-    if (!xQueueIsQueueFullFromISR(motor->joint_state_publish_queue_)) {
-        OutgoingData msg = OutgoingData_init_default;
-        msg.has_joint_state = true;
-        msg.joint_state.has_time = true;
-        msg.msg_id = OutgoingMessageID_JOINT_STATES_DATA;
-
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        msg.joint_state.time.sec = (int32_t)ts.tv_sec;
-        msg.joint_state.time.nanosec = (uint32_t)ts.tv_nsec;
-
-        msg.joint_state.joint = motor->joint_name_;
-        msg.joint_state.effort = motor->applied_effort_;
-        msg.joint_state.velocity = motor->encoder_.velocity_;
-        msg.joint_state.position = motor->encoder_.position_;
-
-        BaseType_t xHigherPriorityTaskWoken;
-        xHigherPriorityTaskWoken = pdFALSE;
-
-        xQueueSendToBackFromISR(motor->joint_state_publish_queue_,
-                                static_cast<void *>(&msg),
-                                &xHigherPriorityTaskWoken);
-
-        if (xHigherPriorityTaskWoken) {
-            portYIELD_FROM_ISR();
-        }
-    }
-}
-
-void Motor::task_main_(void *arg)
-{
-    Motor *motor = (Motor *)arg;
-    IncomingCommand cmd = IncomingCommand_init_default;
-    while (xQueueReceive(motor->joint_cmd_recv_queue_, &cmd, portMAX_DELAY)) {
-        assert(cmd.has_joint_cmd);
-        if (cmd.joint_cmd.joint != motor->joint_name_) {
-            continue;
-        }
-        motor->set_velocity(cmd.joint_cmd.vel);
-    }
-}
-
-Motor::Motor(Joint joint_name,
-             gpio_num_t pwm_a,
+Motor::Motor(gpio_num_t pwm_a,
              ledc_channel_t chan_a,
              gpio_num_t pwm_b,
              ledc_channel_t chan_b,
              gpio_num_t encoder_a,
              gpio_num_t encoder_b,
              bool reversed)
-  : joint_name_(joint_name)
-  , encoder_(Encoder(encoder_a, encoder_b))
+  : encoder_(Encoder(encoder_a, encoder_b))
   , chan_a_(chan_a)
   , chan_b_(chan_b)
   , reversed_(reversed)
@@ -294,30 +235,4 @@ Motor::Motor(Joint joint_name,
     pid_timer_ = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&pid_cb_args_, &pid_timer_));
     esp_timer_start_periodic(pid_timer_, PID_LOOP_PERIOD_MS * 1000);
-
-    joint_state_publish_queue_ = SocketManager::register_data_producer(
-      OutgoingMessageID_JOINT_STATES_DATA);
-
-    joint_cmd_recv_queue_ =
-      SocketManager::register_data_consumer(IncomingMessageID_JOINT_CMD);
-
-    esp_timer_create_args_t publish_cb_args_ = {
-        .callback = publish_timer_callback_,
-        .arg = this,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "publish_timer",
-        .skip_unhandled_events = true
-    };
-
-    publish_timer_ = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&publish_cb_args_, &publish_timer_));
-    esp_timer_start_periodic(publish_timer_, PUBLISH_LOOP_PERIOD_MS * 1000);
-
-    xTaskCreatePinnedToCore(task_main_,
-                            "motor_task",
-                            4096,
-                            static_cast<void *>(this),
-                            5,
-                            NULL,
-                            tskNO_AFFINITY);
 }

@@ -87,6 +87,7 @@ void send_socket_thread(void *arg)
         }
     }
     ESP_LOGE(TAG, "Queue recieve failed.");
+    delete static_cast<send_socket_thread_args *>(arg);
     vTaskDelete(NULL);
 }
 
@@ -118,7 +119,7 @@ void recv_socket_thread(void *arg)
                 if (!pb_decode_delimited(
                       &recv_stream, IncomingCommand_fields, &cmd)) {
                     // Most likely hit EOF (connection closed)
-                    ESP_LOGD(TAG,
+                    ESP_LOGI(TAG,
                              "Failed to decode message: %s. Closing socket.",
                              PB_GET_ERROR(&recv_stream));
 
@@ -183,8 +184,8 @@ QueueHandle_t register_data_producer(OutgoingMessageID id)
     xTaskCreatePinnedToCore(send_socket_thread,
                             "send_socket_thread",
                             SOCKET_THREAD_STACK_SIZE,
-                            static_cast<void *const>(args),
-                            5,
+                            static_cast<void *>(args),
+                            10,
                             NULL,
                             tskNO_AFFINITY);
 
