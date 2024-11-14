@@ -1,5 +1,4 @@
-# TODO: Rewrite file now that microros is not a dependency
-FROM ros:humble
+FROM ubuntu:latest
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && \
@@ -7,7 +6,7 @@ RUN apt-get update && \
 
 RUN mkdir -p ~/esp && \
     cd ~/esp && \
-    git clone --depth=1 -b release/v5.2 --single-branch --recursive --shallow-submodules https://github.com/espressif/esp-idf.git
+    git clone --depth=1 -b release/v5.4 --single-branch --recursive --shallow-submodules https://github.com/espressif/esp-idf.git
 
 RUN cd ~/esp/esp-idf && \
     ./install.sh esp32s3
@@ -17,6 +16,7 @@ RUN . $HOME/esp/esp-idf/export.sh && \
 
 RUN echo "alias get_idf='. $HOME/esp/esp-idf/export.sh'" >> /root/.bashrc
 RUN echo "alias lrr_flash='(. $HOME/esp/esp-idf/export.sh && cd /esp32_firmware && idf.py build flash monitor)'" >> /root/.bashrc
+RUN echo ". ~/esp/esp-idf/export.sh > /dev/null" >> /root/.bashrc
 
 WORKDIR /esp32_firmware
 

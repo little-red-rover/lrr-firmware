@@ -1,0 +1,24 @@
+idf_component_register(
+                    SRCS 
+                        drive_base/drive_base_driver.cc
+                        drive_base/motor_driver.cc
+                        lidar/lidar_driver.cc
+                        imu/imu_driver.cc
+                        battery/battery_driver.cc
+                        status_led/status_led_driver.cc
+                    INCLUDE_DIRS
+                        .
+                        drive_base
+                        imu
+                        lidar
+                        battery
+                        status_led
+                    REQUIRES
+                        zorxx__neopixel
+                    PRIV_REQUIRES
+                        driver
+                        esp_timer
+                        espressif__pid_ctrl
+                        communication_stack
+                        esp_adc
+                    )

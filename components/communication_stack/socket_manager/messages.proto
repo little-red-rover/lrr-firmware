@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+import "nanopb.proto";
+
+// Util
+message TimeStamp
+{
+    int32 sec = 1;
+    uint32 nanosec = 2;
+}
+
+// Incoming
+enum IncomingMessageID
+{
+    JOINT_CMD = 0;
+    incoming_msg_count = 1;
+};
+
+message SubscribeRequest
+{
+    OutgoingMessageID msg_id = 1;
+}
+
+message JointCmd
+{
+    TimeStamp time = 1;
+    float left_vel = 2;
+    float right_vel = 3;
+}
+
+message IncomingCommand
+{
+    IncomingMessageID msg_id = 1;
+    optional SubscribeRequest subscribe_request = 2;
+    optional JointCmd joint_cmd = 3;
+}
+
+// Outgoing
+enum OutgoingMessageID
+{
+    NONE = 0;
+    JOINT_STATES_DATA = 1;
+    IMU_DATA = 2;
+    LIDAR_DATA = 3;
+    BATTERY_DATA = 4;
+    outgoing_msg_count = 5;
+};
+
+message LaserScan
+{
+    TimeStamp time = 1;
+    uint32 speed = 2 [ (nanopb).int_size = IS_16 ];
+    uint32 start_angle = 3 [ (nanopb).int_size = IS_16 ];
+    repeated uint32 ranges = 4
+      [ (nanopb).max_count = 12, (nanopb).int_size = IS_16 ];
+    repeated uint32 intensities = 5
+      [ (nanopb).max_count = 12, (nanopb).int_size = IS_8 ];
+    uint32 end_angle = 6 [ (nanopb).int_size = IS_16 ];
+}
+
+message JointState
+{
+    TimeStamp time = 1;
+    float left_position = 2;
+    float left_velocity = 3;
+    float left_effort = 4;
+    float right_position = 5;
+    float right_velocity = 6;
+    float right_effort = 7;
+}
+
+message IMU
+{
+    TimeStamp time = 1;
+    float gyro_x = 2;
+    float gyro_y = 3;
+    float gyro_z = 4;
+    float accel_x = 5;
+    float accel_y = 6;
+    float accel_z = 7;
+}
+
+message Battery
+{
+    TimeStamp time = 1;
+    float voltage = 2;
+}
+
+message OutgoingData
+{
+    OutgoingMessageID msg_id = 1;
+    repeated LaserScan laser = 2 [ (nanopb).max_count = 20 ];
+    optional JointState joint_state = 3;
+    optional IMU imu = 4;
+    optional Battery battery = 5;
+}
