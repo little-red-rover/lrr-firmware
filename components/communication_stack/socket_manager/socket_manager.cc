@@ -185,7 +185,7 @@ QueueHandle_t register_data_producer(OutgoingMessageID id)
                             "send_socket_thread",
                             SOCKET_THREAD_STACK_SIZE,
                             static_cast<void *>(args),
-                            10,
+                            5,
                             NULL,
                             tskNO_AFFINITY);
 

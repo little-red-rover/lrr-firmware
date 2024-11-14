@@ -34,6 +34,7 @@
 #include "wifi_manager.h"
 
 namespace WifiManager {
+
 #define REPROVISION_PIN GPIO_NUM_11
 
 #define WIFI_CONNECTION_TIMEOUT_MS 10000
@@ -290,7 +291,6 @@ void init()
 
     // DHCP
     esp_netif_dhcps_start(esp_netif_ap);
-    esp_netif_dhcps_start(esp_netif_sta);
     esp_netif_dns_info_t dnsserver;
     dhcps_offer_t dhcps_dns_value = OFFER_DNS;
     esp_netif_dhcps_option(esp_netif_ap,
