@@ -30,7 +30,7 @@
 #define TAG "lidar_driver"
 
 #define POINTS_PER_UART_PACKET 12
-#define UART_PACKETS_PER_MESSAGE 10
+#define UART_PACKETS_PER_MESSAGE 1
 #define HEADER 0x54
 #define VERLEN 0x2C
 

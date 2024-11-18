@@ -89,7 +89,7 @@ message Battery
 message OutgoingData
 {
     OutgoingMessageID msg_id = 1;
-    repeated LaserScan laser = 2 [ (nanopb).max_count = 20 ];
+    repeated LaserScan laser = 2 [ (nanopb).max_count = 1 ];
     optional JointState joint_state = 3;
     optional IMU imu = 4;
     optional Battery battery = 5;
